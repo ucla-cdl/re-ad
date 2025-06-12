@@ -4,10 +4,16 @@ import { PaperContext } from '../contexts/PaperContext';
 import { Box, Typography, IconButton } from '@mui/material';
 import { CloudDownload, CloudUpload } from "@mui/icons-material";
 import Tooltip from '@mui/material/Tooltip';
-import { exportGraph, importGraph } from '../utils/graphIO';
+import { exportGraph, importGraphs } from '../utils/graphIO';
+import { UserContext } from '../contexts/UserContext';
 
 export const HighlightTimeline: React.FC = () => {
     const paperContext = useContext(PaperContext);
+    const userContext = useContext(UserContext);
+    if (!userContext) {
+        throw new Error("UserContext not found");
+    }
+    const { userId } = userContext;
     if (!paperContext) {
         throw new Error("PaperContext not found");
     }
@@ -26,8 +32,8 @@ export const HighlightTimeline: React.FC = () => {
             relativeY: highlight.position.boundingRect.y1, // Add relative y-coordinate
             absoluteY: ((highlight.position.boundingRect.pageNumber-1)*1200 + highlight.position.boundingRect.y1)/1200,
             type: highlight.type,
-            readType: readRecords[highlight.readRecordId].title,
-            color: readRecords[highlight.readRecordId].color
+            readType: readRecords[highlight.readRecordId]?.title,
+            color: readRecords[highlight.readRecordId]?.color || "inherit"
         };
     });
 
@@ -39,14 +45,15 @@ export const HighlightTimeline: React.FC = () => {
             nodes,
             edges,
             readRecords,
-            pdfUrl: paperUrl
+            pdfUrl: paperUrl,
+            userId
         });
     };
 
-    const handleImportGraph = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file) {
-            importGraph(file, setGraphState);
+    const handleImportGraphs = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const files = event.target.files;
+        if (files && files.length > 0) {
+            importGraphs(files, setGraphState, () => {}); // no-op for PDF setter in this component
         }
     };
 
@@ -92,7 +99,7 @@ export const HighlightTimeline: React.FC = () => {
                 <Tooltip title="Import Graph">
                     <IconButton component="label">
                         <CloudUpload />
-                        <input type="file" accept="application/json" hidden onChange={handleImportGraph} />
+                        <input type="file" accept="application/zip" multiple hidden onChange={handleImportGraphs} />
                     </IconButton>
                 </Tooltip>
             </Box>

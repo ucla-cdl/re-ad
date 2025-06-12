@@ -12,7 +12,7 @@ import { PaperContext } from "../contexts/PaperContext";
 import ExpandableTip from "../components/paper-components/ExpandableTip";
 import { ArrowBack, UploadFile, CloudUpload } from "@mui/icons-material";
 import { TourContext } from "../contexts/TourContext";
-import { importGraph } from "../utils/graphIO";
+import { importGraphs } from "../utils/graphIO";
 
 function PaperPanel() {
   const paperContext = useContext(PaperContext);
@@ -89,9 +89,9 @@ function PaperPanel() {
   };
 
   const handleGraphUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      importGraph(file, setGraphState, setPaperUrl);
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      importGraphs(files, setGraphState, setPaperUrl);
     }
   };
 
@@ -113,7 +113,6 @@ function PaperPanel() {
           justifyContent: "center",
           alignItems: "center",
         }}>
-          {/* Hidden Inputs for File Uploads */}
           <input
             type="file"
             accept="application/pdf"
@@ -124,23 +123,23 @@ function PaperPanel() {
           <input
             type="file"
             accept="application/zip"
+            multiple
             onChange={handleGraphUpload}
             style={{ display: "none" }}
             id="graph-upload"
           />
 
-          {/* Buttons to Trigger File Uploads */}
           <Stack direction="row" spacing={2}>
-            <label htmlFor="pdf-upload">
-              <Button
-                className="upload-pdf"
-                variant="outlined"
-                component="span"
-                startIcon={<UploadFile />}
-              >
-                Upload PDF
-              </Button>
-            </label>
+          <label htmlFor="pdf-upload">
+            <Button
+              className="upload-pdf"
+              variant="outlined"
+              component="span"
+              startIcon={<UploadFile />}
+            >
+              Upload PDF
+            </Button>
+          </label>
             <label htmlFor="graph-upload">
               <Button
                 className="upload-graph"

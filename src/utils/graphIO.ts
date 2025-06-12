@@ -1,16 +1,17 @@
 import JSZip from 'jszip';
 
-export async function exportGraph({ highlights, nodes, edges, readRecords, pdfUrl }: {
+export async function exportGraph({ highlights, nodes, edges, readRecords, pdfUrl, userId = "unknown" }: {
   highlights: any[],
   nodes: any[],
   edges: any[],
   readRecords: any,
-  pdfUrl: string | null
+  pdfUrl: string | null,
+  userId?: string
 }) {
   const zip = new JSZip();
   
-  // Add JSON data
-  const data = { highlights, nodes, edges, readRecords };
+  // Add JSON data. Include `userId` to track who made the export.
+  const data = { userId, highlights, nodes, edges, readRecords };
   zip.file("re-ad-graph-export.json", JSON.stringify(data, null, 2));
 
   // Add PDF if available
@@ -38,38 +39,113 @@ export async function exportGraph({ highlights, nodes, edges, readRecords, pdfUr
   URL.revokeObjectURL(url);
 }
 
-export async function importGraph(file: File, setGraphState: (data: any) => void, setPdfUrl: (url: string) => void) {
-  if (file.type === "application/zip") {
+
+export async function importGraphs(
+  files: FileList | File[],
+  setGraphState: (data: any) => void,
+  setPdfUrl: (url: string) => void
+) {
+  // Combined containers
+  let combinedHighlights: any[] = [];
+  let combinedNodes: any[] = [];
+  let combinedEdges: any[] = [];
+  let combinedReadRecords: Record<string, any> = {};
+
+  let pdfAlreadySet = false;
+
+  // iterate through every provided file
+  for (const file of Array.from(files)) {
+    if (file.type !== "application/zip") continue;
+
     try {
       const zip = new JSZip();
       const zipContent = await zip.loadAsync(file);
-      
-      // Find the JSON file and PDF file in the zip
-      const jsonFile = Object.values(zipContent.files).find(file => file.name.endsWith('.json'));
-      const pdfFile = Object.values(zipContent.files).find(file => file.name.endsWith('.pdf'));
-      
+
+      const jsonFile = Object.values(zipContent.files).find((f) => f.name.endsWith(".json"));
+      const pdfFile = Object.values(zipContent.files).find((f) => f.name.endsWith(".pdf"));
+
       if (!jsonFile) {
-        throw new Error("No JSON file found in the zip");
+        console.warn(`No JSON found in ${file.name}. Skipping`);
+        continue;
       }
 
-      // Read and parse the JSON data
-      const jsonContent = await jsonFile.async('string');
-      const data = JSON.parse(jsonContent);
-      setGraphState(data);
+      // Parse JSON
+      const jsonContent = await jsonFile.async("string");
+      const { userId = "unknown", highlights = [], nodes = [], edges = [], readRecords = {} } = JSON.parse(jsonContent);
 
-      // If PDF exists, convert it to base64 and set it as the PDF URL
-      if (pdfFile) {
-        const pdfBlob = await pdfFile.async('blob');
+      //user-id-oldid naming to prevent id collsisions
+
+      const readIdMap: Record<string, string> = {};
+      Object.entries(readRecords).forEach(([oldId, record]: [string, any]) => {
+        const newReadId = `${userId}-${oldId}`;
+        // Save to combined map (later duplicates from same user overwrite identical)
+        combinedReadRecords[newReadId] = { ...record, id: newReadId };
+        readIdMap[oldId] = newReadId;
+      });
+
+      const highlightIdMap: Record<string, string> = {};
+
+      highlights.forEach((h: any) => {
+        const newHighlightId = `${userId}-${h.id}`;
+        highlightIdMap[h.id] = newHighlightId;
+        combinedHighlights.push({
+          ...h,
+          id: newHighlightId,
+          readRecordId: readIdMap[h.readRecordId] ?? h.readRecordId,
+          userId,
+        });
+      });
+
+      // process nodes
+      nodes.forEach((n: any) => {
+        const newNodeId = highlightIdMap[n.id] ?? `${userId}-${n.id}`;
+        const newNode = {
+          ...n,
+          id: newNodeId,
+          data: {
+            ...n.data,
+            id: newNodeId,
+            readRecordId: readIdMap[n.data?.readRecordId] ?? n.data?.readRecordId,
+          },
+        };
+        combinedNodes.push(newNode);
+      });
+
+      // process edges with remapped ids
+      edges.forEach((e: any) => {
+        const newEdgeId = `${userId}-${e.id}`;
+        combinedEdges.push({
+          ...e,
+          id: newEdgeId,
+          source: highlightIdMap[e.source] ?? `${userId}-${e.source}`,
+          target: highlightIdMap[e.target] ?? `${userId}-${e.target}`,
+        });
+      });
+
+      if (pdfFile && !pdfAlreadySet) {
+        const pdfBlob = await pdfFile.async("blob");
         const reader = new FileReader();
         reader.onload = (e) => {
           setPdfUrl(e.target?.result as string);
         };
         reader.readAsDataURL(pdfBlob);
+        pdfAlreadySet = true;
       }
     } catch (err) {
-      alert("Error processing zip file: ");
+      console.error("Error processing zip file", file.name, err);
+      alert("Error processing zip file: " + file.name);
     }
-  } else {
-    alert("Please upload a valid zip file");
   }
+
+  setGraphState({
+    highlights: combinedHighlights,
+    nodes: combinedNodes,
+    edges: combinedEdges,
+    readRecords: combinedReadRecords,
+  });
+}
+
+// if only one file is provided, use this function
+export async function importGraph(file: File, setGraphState: (data: any) => void, setPdfUrl: (url: string) => void) {
+  await importGraphs([file], setGraphState, setPdfUrl);
 } 

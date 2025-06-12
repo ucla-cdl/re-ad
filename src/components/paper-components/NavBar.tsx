@@ -112,13 +112,13 @@ export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProp
                 onChange={(e) => setCurrentReadId(e.target.value)}
                 sx={{
                   "& .MuiOutlinedInput-notchedOutline": {
-                    borderColor: readRecords[currentReadId].color,
+                    borderColor: readRecords[currentReadId]?.color || "inherit",
                   },
                   "&:hover .MuiOutlinedInput-notchedOutline": {
-                    borderColor: readRecords[currentReadId].color,
+                    borderColor: readRecords[currentReadId]?.color || "inherit",
                   },
                   "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                    borderColor: readRecords[currentReadId].color,
+                    borderColor: readRecords[currentReadId]?.color || "inherit",
                   },
                 }}
               >

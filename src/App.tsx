@@ -1,5 +1,6 @@
 import "./App.css";
 import { PaperContextProvider } from "./contexts/PaperContext";
+import { UserContextProvider } from "./contexts/UserContext";
 import { PaperReader } from "./containers/PaperReader";
 import { useEffect } from "react";
 import { TourProvider } from "./contexts/TourContext";
@@ -16,14 +17,16 @@ function App() {
   return (
     <TourProvider>
       <ReadingAnalyticsProvider>
-        <PaperContextProvider>
-          <HashRouter>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/paper-reader" element={<PaperReader />} />
-            </Routes>
-          </HashRouter>
-        </PaperContextProvider>
+        <UserContextProvider>
+          <PaperContextProvider>
+            <HashRouter>
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/paper-reader" element={<PaperReader />} />
+              </Routes>
+            </HashRouter>
+          </PaperContextProvider>
+        </UserContextProvider>
       </ReadingAnalyticsProvider>
     </TourProvider>
   );
