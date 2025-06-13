@@ -1,0 +1,73 @@
+.highlight-node {
+    max-width: 150px;
+    background-color: lightgray;
+    padding: 5px;
+    border-radius: 5px;
+    border: 1px solid black;
+    color: black;
+    text-transform: none !important;
+    font-weight: bold;
+    position: relative;
+    box-sizing: border-box;
+    padding-bottom: 20px;
+}
+
+.highlight-node.selected {
+    border: 2px solid black;
+    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.5);
+}
+
+.highlight-node.intersected {
+    border: 2px solid black;
+    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.5);
+}
+
+.overview-node {
+    max-width: 150px;
+    background-color: lightgray;
+    padding: 5px;
+    border-radius: 5px;
+    border: 1px solid black;
+    color: black;
+    text-transform: none !important;
+}
+
+.overview-node.selected {
+    border: 2px solid black;
+    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.5);
+}
+
+.group-node {
+    max-width: 150px;
+    background-color: lightgray;
+    padding: 5px;
+    border-radius: 5px;
+    border: 1px solid black;
+    color: black;
+    text-transform: none !important;
+    font-weight: bold;
+}
+
+.connection-handle {
+    width: 100%;
+    height: 100%;
+    background: blue;
+    position: absolute;
+    top: 0;
+    left: 0;
+    border-radius: 0;
+    transform: none;
+    border: none;
+    opacity: 0;
+}
+
+.drag-handle__custom {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    cursor: grab;
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translate(-50%, 0) rotate(90deg);
+}

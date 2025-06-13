@@ -12,7 +12,7 @@ import {
   Tooltip
 } from "@mui/material";
 import { FormControlLabel } from "@mui/material";
-import { Add, Analytics, Timeline as TimelineIcon } from "@mui/icons-material";
+import { Add, Analytics, Timeline as TimelineIcon, TipsAndUpdates } from "@mui/icons-material";
 import logo from "/re-ad-logo.svg";
 import { TourContext } from "../../contexts/TourContext";
 
@@ -41,6 +41,9 @@ export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProp
   if (!tourContext) {
     throw new Error("TourContext not found");
   }
+  const {
+    setRunTour,
+  } = tourContext;
 
   const handleAddRead = () => {
     if (!paperUrl) {
@@ -51,10 +54,17 @@ export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProp
     setIsAddingNewRead(true);
   };
 
+  const handleStartTour = () => {
+    setRunTour(true);
+  };
+
   return (
     <div className="NavBar">
       <div className="logo-text">
         <img src={logo} height={40} alt="re:ad" />
+        <IconButton sx={{ ml: 3 }} className="mui-button" size="small" onClick={handleStartTour}>
+          <TipsAndUpdates />
+        </IconButton>
       </div>
 
       <Box className="highlights" sx={{ mx: 2 }}>

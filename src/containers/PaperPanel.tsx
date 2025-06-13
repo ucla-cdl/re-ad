@@ -48,6 +48,13 @@ function PaperPanel() {
   // Refs for PdfHighlighter utilities
   const highlighterUtilsRef = useRef<PdfHighlighterUtils>(null);
 
+  // Load default paper on component mount
+  useEffect(() => {
+    if (!paperUrl) {
+      loadDefaultPaper();
+    }
+  }, []);
+
   // Scroll to highlight based on hash in the URL
   const scrollToHighlightOnSelect = () => {
     const highlight = getHighlightById(selectedHighlightId as string);
@@ -59,12 +66,10 @@ function PaperPanel() {
   };
 
   useEffect(() => {
-    console.log("onSelectNode", onSelectNode);
-    console.log("selectedHighlightId", selectedHighlightId);
-    if (selectedHighlightId && onSelectNode) {
+    if (selectedHighlightId) {
       scrollToHighlightOnSelect();
     }
-  }, [onSelectNode, selectedHighlightId]);
+  }, [selectedHighlightId]);
 
   const getHighlightById = (id: string) => {
     return highlights.find((highlight) => highlight.id === id);
@@ -86,6 +91,23 @@ function PaperPanel() {
     } else {
       alert("Please upload a valid PDF file.");
     }
+  };
+
+  const loadDefaultPaper = () => {
+    fetch('/example-paper.pdf')
+      .then(response => response.blob())
+      .then(blob => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setPaperUrl(e.target?.result as string);
+        };
+        reader.readAsDataURL(blob);
+        setRunTour(true);
+      })
+      .catch(error => {
+        console.error("Error loading default paper:", error);
+        alert("Failed to load the default paper.");
+      });
   };
 
   const handleGraphUpload = (event: React.ChangeEvent<HTMLInputElement>) => {

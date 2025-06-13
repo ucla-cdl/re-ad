@@ -1,6 +1,6 @@
 import { Handle, NodeProps, Node, Position } from "@xyflow/react";
 import { Box, Typography } from "@mui/material";
-import "../../styles/OverviewNode.css";
+import "../../styles/GraphNode.css";
 import { PaperContext } from "../../contexts/PaperContext";
 import { useContext } from "react";
 

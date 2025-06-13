@@ -47,7 +47,7 @@ const STEPS: Step[] = [
 export const TourContext = createContext<TourContextType | null>(null);
 
 export const TourProvider = ({ children }: { children: React.ReactNode }) => {
-  const [runTour, setRunTour] = useState<boolean>(true);
+  const [runTour, setRunTour] = useState<boolean>(false);
   const [steps, setSteps] = useState<Step[]>(STEPS);
   const [stepIndex, setStepIndex] = useState<number>(0);
 
