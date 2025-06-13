@@ -49,11 +49,11 @@ function PaperPanel() {
   const highlighterUtilsRef = useRef<PdfHighlighterUtils>(null);
 
   // Load default paper on component mount
-  useEffect(() => {
-    if (!paperUrl) {
-      loadDefaultPaper();
-    }
-  }, []);
+  // useEffect(() => {
+  //   if (!paperUrl) {
+  //     loadDefaultPaper();
+  //   }
+  // }, []);
 
   // Scroll to highlight based on hash in the URL
   const scrollToHighlightOnSelect = () => {
