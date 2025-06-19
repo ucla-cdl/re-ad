@@ -8,7 +8,6 @@ import { useContext, useState, useEffect } from "react";
 import Joyride, { ACTIONS, CallBackProps, EVENTS, STATUS } from "react-joyride";
 import { TourContext } from "../contexts/TourContext";
 import Split from 'react-split';
-import { useReadingAnalytics } from "../contexts/ReadingAnalyticsContext";
 import { ReadingAnalytics } from "../components/ReadingAnalytics";
 import { HighlightTimeline } from '../components/HighlightTimeline';
 
@@ -25,25 +24,10 @@ export const PaperReader = () => {
   }
   const { setRunTour, runTour, steps, stepIndex, setStepIndex } = tourContext;
 
-  const { startReading, stopReading } = useReadingAnalytics();
-
   const [title, setTitle] = useState<string | null>("");
   const [color, setColor] = useState<string | null>(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [viewType, setViewType] = useState<'graph' | 'analytics' | 'timeline'>('graph');
-
-  // Start/stop reading tracking when currentRead changes
-  useEffect(() => {
-    if (currentRead) {
-      startReading(currentRead.id);
-    } else {
-      stopReading();
-    }
-
-    return () => {
-      stopReading();
-    };
-  }, [currentRead]);
 
   const handleCreateRead = () => {
     if (!title) {

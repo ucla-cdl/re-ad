@@ -14,7 +14,6 @@ import {
 import { ReadHighlight } from "../components/paper-components/HighlightContainer";
 import { NodeData } from "../components/node-components/NodeEditor";
 import { TourContext } from "./TourContext";
-import { useReadingAnalytics } from "../contexts/ReadingAnalyticsContext";
 
 type PaperContextData = {
   // Paper
@@ -80,8 +79,6 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     throw new Error("TourContext not found");
   }
   const { setRunTour } = tourContext;
-  
-  const { trackHighlight } = useReadingAnalytics();
   
   // Paper
   const [paperUrl, setPaperUrl] = useState<string | null>(null);
@@ -159,9 +156,6 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         timestamp: Date.now(),
       },
     ]);
-
-    // Track the highlight in analytics
-    trackHighlight(currentReadId, highlight.type);
 
     // add a node to the graph
     const isFirstHighlight = chronologicalSeq === 0;

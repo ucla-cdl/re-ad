@@ -15,16 +15,16 @@ function App() {
 
   return (
     <TourProvider>
-      <ReadingAnalyticsProvider>
-        <PaperContextProvider>
+      <PaperContextProvider>
+        <ReadingAnalyticsProvider>
           <HashRouter>
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/paper-reader" element={<PaperReader />} />
             </Routes>
           </HashRouter>
-        </PaperContextProvider>
-      </ReadingAnalyticsProvider>
+        </ReadingAnalyticsProvider>
+      </PaperContextProvider>
     </TourProvider>
   );
 }
