@@ -19,7 +19,7 @@ import { v4 as uuidv4 } from 'uuid';
 // Types for our analytics
 export type ReadingSession = {
   sessionId: string;
-  categoryId: string;
+  readId: string;
   startTime: number;
   duration: number;
   scrollSequence: [number, number][];
@@ -61,7 +61,7 @@ export const ReadingAnalyticsProvider: React.FC<{ children: React.ReactNode }> =
       ...prev,
       [sessionId]: {
         sessionId: sessionId,
-        categoryId: readId,
+        readId: readId,
         startTime: startTime,
         duration: 0,
         // TODO: scroll position need to be stored as a normalized value, not depend on the scale of the pdf viewer

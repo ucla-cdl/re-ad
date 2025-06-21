@@ -38,12 +38,12 @@ function ReadingAnalyticsPanel() {
     setTotalTime(Object.values(readingSessions).reduce((acc, session) => acc + session.duration, 0));
     // Group by categoryId and sum the durations
     const categoryDurations = Object.values(readingSessions).reduce((acc, session) => {
-      acc[session.categoryId] = (acc[session.categoryId] || 0) + session.duration;
+      acc[session.readId] = (acc[session.readId] || 0) + session.duration;
       return acc;
     }, {} as Record<string, number>);
 
     const readStats = Object.entries(categoryDurations).map(([readId, duration]) => {
-      const lastSession = Object.values(readingSessions).filter(session => session?.categoryId === readId).sort((a, b) => b.startTime - a.startTime)[0];
+      const lastSession = Object.values(readingSessions).filter(session => session?.readId === readId).sort((a, b) => b.startTime - a.startTime)[0];
       const lastReadTime = lastSession ? lastSession.startTime + lastSession.duration : 0;
 
       return ({

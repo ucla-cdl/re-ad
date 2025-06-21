@@ -29,50 +29,53 @@ export const HighlightTimeline: React.FC = () => {
         const chartWidth = 500;
         const chartHeight = 500;
 
-
         container.selectAll("svg").remove();
         const svg = container.append("svg")
             .attr("width", chartWidth)
             .attr("height", chartHeight);
 
-        /**
-         *  Visualization Design:
-         * 
-         */
-
-        /**
-         * Preprocess the data: 
-         * - Group by readRecordId
-         */
-
         const sessions = Object.values(readingSessions).sort((a, b) => a.startTime - b.startTime);
-
-        const scrollData = sessions.flatMap(session => session.scrollSequence);
+        const startTime = sessions[0].startTime;
+        const endTime = sessions[sessions.length - 1].startTime + sessions[sessions.length - 1].duration;
 
         if (!pdfViewer) {
             return;
         }
 
-        const pdfPages = pdfViewer.getPagesOverview();
-        const pdfHeight = pdfPages.reduce((acc, page) => acc + page.height, 0);
+        // TODO: the height might be different for each page OR the scale might be different -- need to figure out for robust visualization
+        const pdfPageHeight = pdfViewer.getPageView(0).height;
+        const pdfTotalHeight = pdfViewer.pagesCount * pdfPageHeight;
 
         const xScale = d3.scaleLinear()
-            .domain([scrollData[0][0], scrollData[scrollData.length - 1][0]])
+            .domain([startTime, endTime])
             .range([0, chartWidth]);
 
         const yScale = d3.scaleLinear()
-            .domain([0, pdfHeight])
+            .domain([0, pdfTotalHeight])
             .range([0, chartHeight]);
 
         const line = d3.line()
             .x((d) => xScale(d[0]))
             .y((d) => yScale(d[1]));
 
-        svg.append("path")
-            .attr("d", line(scrollData))
-            .attr("fill", "none")
-            .attr("stroke", "black")
-            .attr("stroke-width", 2);
+        sessions.forEach(session => {
+            svg.append("path")
+                .attr("d", line(session.scrollSequence))
+                .attr("fill", "none")
+                .attr("stroke", readRecords[session.readId].color)
+                .attr("stroke-width", 3);
+        });
+
+        highlights.forEach(highlight => {
+            const yPosition = (highlight.position.boundingRect.pageNumber - 1) * pdfPageHeight + highlight.position.boundingRect.y1;
+            svg.append("circle")
+                .attr("cx", xScale(highlight.timestamp))
+                .attr("cy", yScale(yPosition))
+                .attr("r", 3)
+                .attr("fill", readRecords[highlight.readRecordId].color)
+                .attr("stroke", "black")
+                .attr("stroke-width", 0.5);
+        });
     }
 
     const handleExportGraph = () => {
