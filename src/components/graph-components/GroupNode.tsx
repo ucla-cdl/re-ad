@@ -1,8 +1,7 @@
 import { Box, Typography } from "@mui/material";
 import { Position, Handle, NodeProps, Node, useConnection } from "@xyflow/react";
 import "../../styles/GraphNode.css";
-import { PaperContext } from "../../contexts/PaperContext";
-import { useContext } from "react";
+import { usePaperContext } from "../../contexts/PaperContext";
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 
 export default function GroupNode({ data }: NodeProps<Node>) {
@@ -14,11 +13,7 @@ export default function GroupNode({ data }: NodeProps<Node>) {
     content: string;
     intersected: boolean;
   };
-  const paperContext = useContext(PaperContext);
-  if (!paperContext) {
-    throw new Error("PaperContext not found");
-  }
-  const { readRecords, displayedReads, selectedHighlightId } = paperContext;
+  const { readRecords, displayedReads, selectedHighlightId } = usePaperContext();
   const { color } = readRecords[readRecordId];
   const isDisplayed = displayedReads.includes(readRecordId);
   const connection = useConnection();

@@ -14,6 +14,8 @@ import {
 import { ReadHighlight } from "../components/paper-components/HighlightContainer";
 import { NodeData } from "../components/node-components/NodeEditor";
 import { TourContext } from "./TourContext";
+import { PDFViewer } from "pdfjs-dist/types/web/pdf_viewer";
+import { v4 as uuidv4 } from 'uuid';
 
 type PaperContextData = {
   // Paper
@@ -25,6 +27,8 @@ type PaperContextData = {
   setHighlights: (highlights: Array<ReadHighlight>) => void;
   deleteHighlight: (highlightId: string) => void;
   resetHighlights: () => void;
+  pdfViewer: PDFViewer | null;
+  setPdfViewer: (pdfViewer: PDFViewer | null) => void;
   // Graph
   nodes: Array<Node>;
   setNodes: (nodes: Array<Node>) => void;
@@ -45,7 +49,6 @@ type PaperContextData = {
   createRead: (title: string, color: string) => void;
   currentReadId: string;
   setCurrentReadId: (readId: string) => void;
-  currentRead: ReadRecord | null;
   setReadRecords: (readRecords: Record<string, ReadRecord>) => void;
   displayedReads: Array<string>;
   hideRead: (readId: string) => void;
@@ -54,7 +57,7 @@ type PaperContextData = {
   setSelectedHighlightId: (highlightId: string | null) => void;
 };
 
-export const PaperContext = createContext<PaperContextData | null>(null);
+const PaperContext = createContext<PaperContextData | undefined>(undefined);
 
 type ReadRecord = {
   id: string;
@@ -84,11 +87,12 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   const [paperUrl, setPaperUrl] = useState<string | null>(null);
   const [highlights, setHighlights] = useState<Array<ReadHighlight>>([]);
   const [chronologicalSeq, setChronologicalSeq] = useState(0);
+  const [pdfViewer, setPdfViewer] = useState<PDFViewer | null>(null);
 
   // Shared
   const [readRecords, setReadRecords] = useState<Record<string, ReadRecord>>({});
   const [isAddingNewRead, setIsAddingNewRead] = useState(false);
-  const [currentReadId, setCurrentReadId] = useState("0");
+  const [currentReadId, setCurrentReadId] = useState("-1");
   const [selectedHighlightId, setSelectedHighlightId] = useState<string | null>(null);
   const [displayedReads, setDisplayedReads] = useState<Array<string>>([]);
 
@@ -303,7 +307,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   };
 
   const createRead = (title: string, color: string) => {
-    const newReadId = Object.keys(readRecords).length.toString();
+    const newReadId = uuidv4();
     setReadRecords((prevReadRecords) => ({
       ...prevReadRecords,
       [newReadId]: { id: newReadId, title, color },
@@ -311,12 +315,12 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     setCurrentReadId(newReadId);
     showRead(newReadId);
 
-    // Start the tour when adding first read
-    if (newReadId === "0") {
-      if (Object.keys(readRecords).length === 0) {
-        setRunTour(true);
-      }
-    }
+    // Start the tour when adding first read -- TODO: redesign tour trigger to be more flexible
+    // if (currentReadId === "-1") {
+    //   if (Object.keys(readRecords).length === 0) {
+    //     setRunTour(true);
+    //   }
+    // }
   };
 
   const hideRead = (readId: string) => {
@@ -326,8 +330,6 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   const showRead = (readId: string) => {
     setDisplayedReads((prevDisplayedReads) => [...prevDisplayedReads, readId]);
   };
-
-  const currentRead = readRecords[currentReadId] || null;
 
   return (
     <PaperContext.Provider
@@ -341,6 +343,8 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         updateNodeData,
         deleteHighlight,
         resetHighlights,
+        pdfViewer,
+        setPdfViewer,
         // Graph
         nodes,
         setNodes,
@@ -361,7 +365,6 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         createRead,
         currentReadId,
         setCurrentReadId,
-        currentRead,
         displayedReads,
         setReadRecords,
         hideRead,
@@ -373,4 +376,13 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
       {children}
     </PaperContext.Provider>
   );
+};
+
+export const usePaperContext = () => {
+  const context = useContext(PaperContext);
+  if (context === undefined) {
+    throw new Error('usePaperContext must be used within a PaperContextProvider');
+  }
+  
+  return context;
 };

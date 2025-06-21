@@ -8,17 +8,13 @@ import {
 } from "react-pdf-highlighter-extended";
 import HighlightContainer from "../components/paper-components/HighlightContainer";
 import Sidebar from "../components/paper-components/Sidebar";
-import { PaperContext } from "../contexts/PaperContext";
+import { usePaperContext } from "../contexts/PaperContext";
 import ExpandableTip from "../components/paper-components/ExpandableTip";
 import { ArrowBack, UploadFile, CloudUpload } from "@mui/icons-material";
 import { TourContext } from "../contexts/TourContext";
 import { importGraph } from "../utils/graphIO";
 
 function PaperPanel() {
-  const paperContext = useContext(PaperContext);
-  if (!paperContext) {
-    throw new Error("PaperContext not found");
-  }
   const {
     paperUrl,
     setPaperUrl,
@@ -34,8 +30,10 @@ function PaperPanel() {
     setHighlights,
     setNodes,
     setEdges,
-    setReadRecords
-  } = paperContext;
+    setReadRecords,
+    pdfViewer,
+    setPdfViewer
+  } = usePaperContext();
 
   const tourContext = useContext(TourContext);
   if (!tourContext) {
@@ -47,20 +45,14 @@ function PaperPanel() {
 
   // Refs for PdfHighlighter utilities
   const highlighterUtilsRef = useRef<PdfHighlighterUtils>(null);
-
-  // Load default paper on component mount
-  // useEffect(() => {
-  //   if (!paperUrl) {
-  //     loadDefaultPaper();
-  //   }
-  // }, []);
-
+  
   // Scroll to highlight based on hash in the URL
+  // TODO: scroll to highlight should be a button, not default by clicking on the highlight (since we not have the scroll position recorded for reading)
   const scrollToHighlightOnSelect = () => {
     const highlight = getHighlightById(selectedHighlightId as string);
 
     if (highlight && highlighterUtilsRef.current) {
-      console.log("sceroll to highlight", highlight);
+      console.log("scroll to highlight", highlight);
       highlighterUtilsRef.current.scrollToHighlight(highlight);
     }
   };
@@ -75,10 +67,6 @@ function PaperPanel() {
     return highlights.find((highlight) => highlight.id === id);
   };
 
-  useEffect(() => {
-    console.log("selectedHighlightId", selectedHighlightId);
-  }, [selectedHighlightId]);
-
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file && file.type === "application/pdf") {
@@ -91,23 +79,6 @@ function PaperPanel() {
     } else {
       alert("Please upload a valid PDF file.");
     }
-  };
-
-  const loadDefaultPaper = () => {
-    fetch('/example-paper.pdf')
-      .then(response => response.blob())
-      .then(blob => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          setPaperUrl(e.target?.result as string);
-        };
-        reader.readAsDataURL(blob);
-        setRunTour(true);
-      })
-      .catch(error => {
-        console.error("Error loading default paper:", error);
-        alert("Failed to load the default paper.");
-      });
   };
 
   const handleGraphUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -200,6 +171,7 @@ function PaperPanel() {
                   enableAreaSelection={(event) => event.altKey}
                   pdfDocument={pdfDocument}
                   utilsRef={(_pdfHighlighterUtils) => {
+                    setPdfViewer(_pdfHighlighterUtils.getViewer());
                     highlighterUtilsRef.current = _pdfHighlighterUtils;
                   }}
                   selectionTip={

@@ -20,6 +20,7 @@
     "@mui/icons-material": "^6.4.11",
     "@mui/material": "^6.4.6",
     "@xyflow/react": "^12.4.4",
+    "d3": "^7.9.0",
     "gh-pages": "^6.3.0",
     "jszip": "^3.10.1",
     "pdfjs-dist": "4.4.168",
@@ -35,6 +36,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",
+    "@types/d3": "^7.4.3",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react": "^4.3.4",

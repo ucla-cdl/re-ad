@@ -1,37 +1,79 @@
-import React, { useContext } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, Scatter } from 'recharts';
-import { PaperContext } from '../contexts/PaperContext';
+import React, { useEffect } from 'react';
+import { usePaperContext } from '../contexts/PaperContext';
 import { Box, Typography, IconButton } from '@mui/material';
 import { CloudDownload, CloudUpload } from "@mui/icons-material";
 import Tooltip from '@mui/material/Tooltip';
+import * as d3 from "d3";
 import { exportGraph, importGraph } from '../utils/graphIO';
+import { useReadingAnalyticsContext } from '../contexts/ReadingAnalyticsContext';
 
 export const HighlightTimeline: React.FC = () => {
-    const paperContext = useContext(PaperContext);
-    if (!paperContext) {
-        throw new Error("PaperContext not found");
+    // TODO: move the import export to the context file
+    const { pdfViewer, highlights, readRecords, nodes, edges, setHighlights, setNodes, setEdges, setReadRecords, paperUrl } = usePaperContext();
+
+    const { readingSessions } = useReadingAnalyticsContext();
+
+    useEffect(() => {
+        drawTimelineGraph();
+    }, []);
+
+    const drawTimelineGraph = () => {
+        const container = d3.select("#highlight-timeline-container");
+        if (!container) return;
+
+        const node = container.node() as HTMLElement;
+        if (!node) return;
+        // const chartWidth = node.clientWidth;
+        // const chartHeight = node.clientHeight;
+
+        const chartWidth = 500;
+        const chartHeight = 500;
+
+
+        container.selectAll("svg").remove();
+        const svg = container.append("svg")
+            .attr("width", chartWidth)
+            .attr("height", chartHeight);
+
+        /**
+         *  Visualization Design:
+         * 
+         */
+
+        /**
+         * Preprocess the data: 
+         * - Group by readRecordId
+         */
+
+        const sessions = Object.values(readingSessions).sort((a, b) => a.startTime - b.startTime);
+
+        const scrollData = sessions.flatMap(session => session.scrollSequence);
+
+        if (!pdfViewer) {
+            return;
+        }
+
+        const pdfPages = pdfViewer.getPagesOverview();
+        const pdfHeight = pdfPages.reduce((acc, page) => acc + page.height, 0);
+
+        const xScale = d3.scaleLinear()
+            .domain([scrollData[0][0], scrollData[scrollData.length - 1][0]])
+            .range([0, chartWidth]);
+
+        const yScale = d3.scaleLinear()
+            .domain([0, pdfHeight])
+            .range([0, chartHeight]);
+
+        const line = d3.line()
+            .x((d) => xScale(d[0]))
+            .y((d) => yScale(d[1]));
+
+        svg.append("path")
+            .attr("d", line(scrollData))
+            .attr("fill", "none")
+            .attr("stroke", "black")
+            .attr("stroke-width", 2);
     }
-    const { highlights, readRecords, nodes, edges, setHighlights, setNodes, setEdges, setReadRecords, paperUrl } = paperContext;
-
-    // Add debugging
-    console.log('Highlights:', highlights);
-    console.log('ReadRecords:', readRecords);
-
-    // Transform highlights data for the chart
-    const chartData = highlights.map(highlight => {
-        console.log('Processing highlight:', highlight);  // Add debugging
-        return {
-            timestamp: new Date(highlight.timestamp).toLocaleTimeString(),
-            pageNumber: highlight.position.boundingRect.pageNumber,
-            relativeY: highlight.position.boundingRect.y1, // Add relative y-coordinate
-            absoluteY: ((highlight.position.boundingRect.pageNumber-1)*1200 + highlight.position.boundingRect.y1)/1200,
-            type: highlight.type,
-            readType: readRecords[highlight.readRecordId].title,
-            color: readRecords[highlight.readRecordId].color
-        };
-    });
-
-    console.log('Chart Data:', chartData);  // Add debugging
 
     const handleExportGraph = () => {
         exportGraph({
@@ -58,31 +100,12 @@ export const HighlightTimeline: React.FC = () => {
     };
 
     return (
-        <Box sx={{ p: 2, height: '100%', overflow: 'auto' }}>
+        <Box sx={{ p: 2, width: '100%', height: '100%', overflow: 'auto' }}>
             <Typography variant="h5" sx={{ mb: 2, color: 'text.secondary' }}>
                 Highlight Timeline
             </Typography>
-            <LineChart width={800} height={400} data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                    dataKey="timestamp"
-                    label={{ value: 'Time', position: 'insideTop' }}
-                    orientation="top"
-                />
-                <YAxis
-                    dataKey="absoluteY"
-                    label={{ value: 'Page Number', angle: -90, position: 'insideLeft' }}
-                    reversed={true}
-                />
-                <RechartsTooltip />
-                <Legend />
-                <Line
-                    type="monotone"
-                    dataKey="absoluteY"
-                    stroke="black"
-                    dot={{ stroke: 'blue', fill: 'blue' }}
-                />
-            </LineChart>
+            <Box id="highlight-timeline-container" sx={{ width: '100%', height: '100%' }} />
+
             <Box sx={{ mx: 2, display: 'flex', gap: 1 }}>
                 <Tooltip title="Export Graph">
                     <IconButton onClick={handleExportGraph}>

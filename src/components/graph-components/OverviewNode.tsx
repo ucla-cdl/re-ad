@@ -1,16 +1,11 @@
 import { Handle, NodeProps, Node, Position } from "@xyflow/react";
 import { Box, Typography } from "@mui/material";
 import "../../styles/GraphNode.css";
-import { PaperContext } from "../../contexts/PaperContext";
-import { useContext } from "react";
+import { usePaperContext } from "../../contexts/PaperContext";
 
 export default function OverviewNode({ data }: NodeProps<Node>) {
     const { id, readRecordId, label, content, type, notes } = data as { id: string, readRecordId: string, label: string, content: string, type: string, notes: string };
-    const paperContext = useContext(PaperContext);
-    if (!paperContext) {
-        throw new Error("PaperContext not found");
-    }
-    const { readRecords, displayedReads, selectedHighlightId } = paperContext;
+    const { readRecords, displayedReads, selectedHighlightId } = usePaperContext();
     const { color } = readRecords[readRecordId];
     const isDisplayed = displayedReads.includes(readRecordId);
 

@@ -1,7 +1,6 @@
 import "../../styles/Sidebar.css";
 import { ReadHighlight } from "./HighlightContainer";
-import { PaperContext } from "../../contexts/PaperContext";
-import { useContext } from "react";
+import { usePaperContext } from "../../contexts/PaperContext";
 
 interface SidebarProps {
   highlights: Array<ReadHighlight>;
@@ -16,11 +15,7 @@ const Sidebar = ({
   highlights,
   resetHighlights,
 }: SidebarProps) => {
-  const paperContext = useContext(PaperContext);
-  if (!paperContext) {
-    throw new Error("PaperContext not found");
-  }
-  const { readRecords } = paperContext;
+  const { readRecords } = usePaperContext();
 
   const convertColorToRGBA = (color: string) => {
     const r = parseInt(color.slice(1, 3), 16)

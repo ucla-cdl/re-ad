@@ -1,6 +1,6 @@
 import { useContext } from "react";
 import "../../styles/NavBar.css";
-import { PaperContext } from "../../contexts/PaperContext";
+import { usePaperContext } from "../../contexts/PaperContext";
 import {
   Box,
   Button,
@@ -22,20 +22,7 @@ interface NavBarProps {
 }
 
 export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProps) {
-  const paperContext = useContext(PaperContext);
-  if (!paperContext) {
-    throw new Error("PaperContext not found");
-  }
-  const {
-    paperUrl,
-    readRecords,
-    currentReadId,
-    setCurrentReadId,
-    setIsAddingNewRead,
-    displayedReads,
-    hideRead,
-    showRead,
-  } = paperContext;
+  const { paperUrl, readRecords, currentReadId, setCurrentReadId, setIsAddingNewRead, displayedReads, hideRead, showRead } = usePaperContext();
 
   const tourContext = useContext(TourContext);
   if (!tourContext) {

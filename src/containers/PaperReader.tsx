@@ -1,22 +1,18 @@
 import NavBar from "../components/paper-components/NavBar";
 import PaperPanel from "./PaperPanel";
 import GraphPanel from "./GraphPanel";
+import ReadingAnalyticsPanel from "../components/ReadingAnalyticsPanel";
+import { HighlightTimeline } from '../components/HighlightTimeline';
 import { Box, DialogTitle, TextField, Dialog, DialogContent, Button, DialogActions } from "@mui/material";
 import "../styles/PaperReader.css";
-import { PaperContext } from "../contexts/PaperContext";
-import { useContext, useState, useEffect } from "react";
+import { usePaperContext } from "../contexts/PaperContext";
+import { useContext, useState } from "react";
 import Joyride, { ACTIONS, CallBackProps, EVENTS, STATUS } from "react-joyride";
 import { TourContext } from "../contexts/TourContext";
 import Split from 'react-split';
-import { ReadingAnalytics } from "../components/ReadingAnalytics";
-import { HighlightTimeline } from '../components/HighlightTimeline';
 
 export const PaperReader = () => {
-  const paperContext = useContext(PaperContext);
-  if (!paperContext) {
-    throw new Error("PaperContext not found");
-  }
-  const { isAddingNewRead, setIsAddingNewRead, createRead, currentRead, readRecords } = paperContext;
+  const { isAddingNewRead, setIsAddingNewRead, createRead } = usePaperContext();
 
   const tourContext = useContext(TourContext);
   if (!tourContext) {
@@ -26,7 +22,6 @@ export const PaperReader = () => {
 
   const [title, setTitle] = useState<string | null>("");
   const [color, setColor] = useState<string | null>(null);
-  const [showAnalytics, setShowAnalytics] = useState(false);
   const [viewType, setViewType] = useState<'graph' | 'analytics' | 'timeline'>('graph');
 
   const handleCreateRead = () => {
@@ -112,7 +107,7 @@ export const PaperReader = () => {
           </Box>
           <Box className="panel graph-panel">
             {viewType === 'graph' && <GraphPanel />}
-            {viewType === 'analytics' && <ReadingAnalytics readRecords={readRecords} />}
+            {viewType === 'analytics' && <ReadingAnalyticsPanel />}
             {viewType === 'timeline' && <HighlightTimeline />}
           </Box>
         </Split>
@@ -143,31 +138,7 @@ export const PaperReader = () => {
                 onClick={() => setColor(c)}
               />
             ))}
-            {/* <IconButton
-              sx={{ marginLeft: 1, padding: 0 }}
-              onClick={() => colorInputRef.current.click()}
-            >
-              <Add />
-            </IconButton>
-            <input
-              ref={colorInputRef}
-              type="color"
-              style={{ display: "none" }}
-              onChange={(event) => setColor(event.target.value)}
-            /> */}
           </Box>
-          {/* <input
-            style={{
-              padding: 4,
-              borderColor: "rgba(0, 0, 0, 0.23)",
-              background: "none",
-              cursor: "pointer",
-              borderRadius: 4,
-            }}
-            type="color"
-            value={color}
-            onChange={(event) => setColor(event.target.value)}
-          />; */}
         </DialogContent>
         <DialogActions>
           <Button variant="text" color="error" onClick={handleCancel}>

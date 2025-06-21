@@ -1,202 +1,145 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
-import { PaperContext } from './PaperContext';
+import { usePaperContext } from './PaperContext';
 import { ReadHighlight } from '../components/paper-components/HighlightContainer';
+import { v4 as uuidv4 } from 'uuid';
+
+/**
+ * Reading Analytics:
+ * - Reading Session: a single session of reading a paper within one reading goal
+ * 
+ * analytics:
+ * - reading sessions (dictionary of categoryId to reading sessions)
+ * - reading session:
+ * -- categoryId: the category of the reading session
+ * -- startTime: the start time of the reading session
+ * -- endTime?: the end time of the reading session
+ * -- scrollSequence: a list of (timestamp, scroll position) pairs
+ */
 
 // Types for our analytics
-interface ReadingSession {
+export type ReadingSession = {
+  sessionId: string;
   categoryId: string;
   startTime: number;
-  endTime?: number;
-  duration?: number;
+  duration: number;
+  scrollSequence: [number, number][];
 }
 
-interface CategoryAnalytics {
-  categoryId: string;
-  totalTimeSpent: number; // in milliseconds
-  highlightCount: number;
-  imageHighlightCount: number;
-  textHighlightCount: number;
-  lastRead: Date;
+type ReadingAnalyticsContextData = {
+  readingSessions: Record<string, ReadingSession>;
 }
 
-interface ReadingAnalytics {
-  categories: Record<string, CategoryAnalytics>;
-  currentSession: ReadingSession | null;
-  totalReadingTime: number;
-  lastUpdated: Date;
-}
-
-interface ReadingAnalyticsContextType {
-  analytics: ReadingAnalytics;
-  startReading: (categoryId: string) => void;
-  stopReading: () => void;
-  getCategoryStats: (categoryId: string) => CategoryAnalytics | undefined;
-  getTotalReadingTime: () => number;
-  getMostReadCategory: () => string | null;
-  resetAnalytics: () => void;
-}
-
-const ReadingAnalyticsContext = createContext<ReadingAnalyticsContextType | undefined>(undefined);
-
-const initialAnalytics: ReadingAnalytics = {
-  categories: {},
-  currentSession: null,
-  totalReadingTime: 0,
-  lastUpdated: new Date(),
-};
+const ReadingAnalyticsContext = createContext<ReadingAnalyticsContextData | undefined>(undefined);
 
 export const ReadingAnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Get context data from PaperContext
-  const paperContext = useContext(PaperContext);
-  if (!paperContext) {
-    throw new Error("PaperContext not found");
-  }
-  const { currentRead, highlights } = paperContext;
+  const { currentReadId, highlights, pdfViewer } = usePaperContext();
   const highlightsRef = useRef<ReadHighlight[]>(highlights);
 
   useEffect(() => {
     highlightsRef.current = highlights;
   }, [highlights]);
 
-  const [analytics, setAnalytics] = useState<ReadingAnalytics>(() => {
-    const saved = sessionStorage.getItem('readingAnalytics');
-    return saved ? JSON.parse(saved) : initialAnalytics;
-  });
+  const [readingSessions, setReadingSessions] = useState<Record<string, ReadingSession>>({});
 
-  const UPDATE_INTERVAL = 1000;
+  const UPDATE_INTERVAL = 500;
   const updateIntervalRef = useRef<number | null>(null);
-  const previousSessionRef = useRef<ReadingSession | null>(null);
+  const currentSessionIdRef = useRef<string | null>(null);
 
   // Save analytics to sessionStorage whenever it changes
   useEffect(() => {
-    sessionStorage.setItem('readingAnalytics', JSON.stringify(analytics));
-  }, [analytics]);
+    sessionStorage.setItem('readingSessions', JSON.stringify(readingSessions));
+  }, [readingSessions]);
 
-  // Start a new reading session
-  const startReading = (categoryId: string) => {
-    console.log('Starting reading session', categoryId);
-    setAnalytics(prev => ({
+  // Create a new reading session
+  const createNewReadingSession = (readId: string) => {
+    console.log('Creating new reading session', readId);
+
+    const sessionId = uuidv4();
+    const startTime = Date.now();
+
+    setReadingSessions(prev => ({
       ...prev,
-      currentSession: {
-        categoryId,
-        startTime: Date.now(),
+      [sessionId]: {
+        sessionId: sessionId,
+        categoryId: readId,
+        startTime: startTime,
+        duration: 0,
+        // TODO: scroll position need to be stored as a normalized value, not depend on the scale of the pdf viewer
+        scrollSequence: [[startTime, pdfViewer?.scroll.lastY || 0]],
       },
-      lastUpdated: new Date(),
     }));
+
+    return sessionId;
   };
 
-  // Stop the current reading session
-  const stopReading = () => {
-    console.log('Stopping reading session');
-    setAnalytics(prev => ({
+  // Update the reading session
+  const updateReadingSession = () => {
+    if (!currentSessionIdRef.current) return;
+
+    const sessionId = currentSessionIdRef.current;
+    if (!sessionId) return;
+
+    const timestamp = Date.now();
+    setReadingSessions(prev => ({
       ...prev,
-      currentSession: null,
+      [sessionId]: {
+        ...prev[sessionId],
+        duration: timestamp - prev[sessionId].startTime,
+        scrollSequence: [
+          ...prev[sessionId].scrollSequence, 
+          [timestamp, pdfViewer?.scroll.lastY || 0]
+        ],
+      },
     }));
-  };
-
-  // Update the reading analytics
-  const updateReadingAnalytics = () => {
-    if (!analytics.currentSession) return;
-
-    const { categoryId } = analytics.currentSession;
-
-    setAnalytics(prev => {
-      const category = prev.categories[categoryId] || {
-        categoryId,
-        totalTimeSpent: 0,
-        highlightCount: 0,
-        imageHighlightCount: 0,
-        textHighlightCount: 0,
-        lastRead: new Date(),
-      };
-
-      const categoryHighlights = highlightsRef.current.filter(h => h.readRecordId === categoryId);
-      const updatedCategory = {
-        ...category,
-        totalTimeSpent: category.totalTimeSpent + UPDATE_INTERVAL,
-        highlightCount: categoryHighlights.length,
-        imageHighlightCount: categoryHighlights.filter(h => h.type === 'area').length,
-        textHighlightCount: categoryHighlights.filter(h => h.type === 'text').length,
-        lastRead: new Date(),
-      };
-
-      return {
-        ...prev,
-        categories: {
-          ...prev.categories,
-          [categoryId]: updatedCategory,
-        },
-        totalReadingTime: prev.totalReadingTime + UPDATE_INTERVAL,
-        lastUpdated: new Date(),
-      };
-    });
   }
 
-  const getCategoryStats = (categoryId: string) => {
-    return analytics.categories[categoryId];
-  };
-
-  const getTotalReadingTime = () => analytics.totalReadingTime;
-
-  const getMostReadCategory = () => {
-    const categories = Object.values(analytics.categories);
-    if (categories.length === 0) return null;
-
-    return categories.reduce((max, current) =>
-      current.totalTimeSpent > (max?.totalTimeSpent || 0) ? current : max
-    ).categoryId;
-  };
-
-  const resetAnalytics = () => {
-    setAnalytics(initialAnalytics);
-    sessionStorage.removeItem('readingAnalytics');
-  };
-
-  // Start tracking new reading session when currentRead changes
+  // Start tracking new reading session when current read changes
   useEffect(() => {
-    if (currentRead) {
-      startReading(currentRead.id);
-    }
-  }, [currentRead]);
+    // Stop existing reading session
+    stopUpdateReadingSession();
 
-  // Update reading analytics every second
-  useEffect(() => {
-    if (!analytics.currentSession) {
-      console.log('No current session: Stopping update interval');
-      if (updateIntervalRef.current) {
-        clearInterval(updateIntervalRef.current);
-        updateIntervalRef.current = null;
-      }
-      return;
+    if (currentReadId !== "-1") {
+      // Start new reading session
+      const sessionId = createNewReadingSession(currentReadId);
+      currentSessionIdRef.current = sessionId;
+      startUpdateReadingSession();
     }
-
-    console.log('Starting update interval: ', analytics.currentSession);
-    updateIntervalRef.current = setInterval(() => {
-      updateReadingAnalytics();
-    }, UPDATE_INTERVAL);
 
     return () => {
-      console.log('Clearing current update interval');
-      if (updateIntervalRef.current) {
-        clearInterval(updateIntervalRef.current);
-        updateIntervalRef.current = null;
-      }
+      stopUpdateReadingSession();
     };
-  }, [analytics.currentSession]);
+  }, [currentReadId]);
+
+  // Stop updating the reading session
+  const stopUpdateReadingSession = () => {
+    console.log('Stopping current update interval');
+
+    if (updateIntervalRef.current) {
+      clearInterval(updateIntervalRef.current);
+      updateIntervalRef.current = null;
+    }
+  };
+
+  // Start updating the reading session every UPDATE_INTERVAL milliseconds
+  const startUpdateReadingSession = () => {
+    console.log('Starting update interval: ', currentSessionIdRef.current);
+
+    updateIntervalRef.current = setInterval(() => {
+      updateReadingSession();
+    }, UPDATE_INTERVAL);
+  };
 
   // Handle page visibility changes
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.hidden && analytics.currentSession) {
+      if (document.hidden && currentSessionIdRef.current) {
         // Store the current session before stopping
-        previousSessionRef.current = analytics.currentSession;
-        stopReading();
-        console.log('Visibility change: Stopped reading session', analytics.currentSession);
-      } else if (!document.hidden && previousSessionRef.current) {
+        stopUpdateReadingSession();
+        console.log('Visibility change: Hidden', currentSessionIdRef.current);
+      } else if (!document.hidden && currentSessionIdRef.current) {
         // Resume the previous session when page becomes visible
-        startReading(previousSessionRef.current.categoryId);
-        previousSessionRef.current = null;
-        console.log('Visibility change: Resumed reading session', previousSessionRef.current);
+        startUpdateReadingSession();
+        console.log('Visibility change: Visible', currentSessionIdRef.current);
       }
     };
 
@@ -204,31 +147,12 @@ export const ReadingAnalyticsProvider: React.FC<{ children: React.ReactNode }> =
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [analytics.currentSession]);
-
-  // Reset analytics when the page is refreshed
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      console.log('Page Reloaded: Resetting analytics');
-      resetAnalytics();
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, []);
+  }, [currentSessionIdRef.current]);
 
   return (
     <ReadingAnalyticsContext.Provider
       value={{
-        analytics,
-        startReading,
-        stopReading,
-        getCategoryStats,
-        getTotalReadingTime,
-        getMostReadCategory,
-        resetAnalytics,
+        readingSessions,
       }}
     >
       {children}
@@ -236,10 +160,11 @@ export const ReadingAnalyticsProvider: React.FC<{ children: React.ReactNode }> =
   );
 };
 
-export const useReadingAnalytics = () => {
+export const useReadingAnalyticsContext = () => {
   const context = useContext(ReadingAnalyticsContext);
   if (context === undefined) {
     throw new Error('useReadingAnalytics must be used within a ReadingAnalyticsProvider');
   }
+
   return context;
 }; 

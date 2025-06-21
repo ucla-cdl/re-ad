@@ -1,6 +1,6 @@
 import "@xyflow/react/dist/style.css";
 import Dagre from '@dagrejs/dagre';
-import { useState, useContext, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   ReactFlow,
   type OnNodeDrag,
@@ -18,7 +18,7 @@ import HighlightNode from "../components/graph-components/HighlightNode";
 import OverviewNode from "../components/graph-components/OverviewNode";
 import ChronologicalEdge from "../components/graph-components/ChronologicalEdge";
 import RelationalEdge from "../components/graph-components/RelationalEdge";
-import { PaperContext, EDGE_TYPES } from "../contexts/PaperContext";
+import { usePaperContext, EDGE_TYPES } from "../contexts/PaperContext";
 import NodeEditor from "../components/node-components/NodeEditor";
 import { CloseFullscreen, OpenInFull } from "@mui/icons-material";
 import GroupNode from "../components/graph-components/GroupNode";
@@ -207,10 +207,6 @@ function Flow(props: any) {
 }
 
 export default function GraphPanel() {
-  const paperContext = useContext(PaperContext);
-  if (!paperContext) {
-    throw new Error("PaperContext not found");
-  }
   const {
     nodes,
     edges,
@@ -226,7 +222,7 @@ export default function GraphPanel() {
     createGroupNode,
     displayEdgeTypes,
     setDisplayEdgeTypes
-  } = paperContext;
+  } = usePaperContext();
 
   return (
     <Box style={{ width: "100%", height: "100%", position: "relative" }}>

@@ -1,8 +1,8 @@
-import { useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import "../../styles/NodeEditor.css";
 // import References from "./References";
 import { Box, Button, IconButton, TextField } from "@mui/material";
-import { PaperContext } from "../../contexts/PaperContext";
+import { usePaperContext } from "../../contexts/PaperContext";
 import { Close } from "@mui/icons-material";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
@@ -19,11 +19,7 @@ const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(apiKey || "");
 
 function NodeEditor() {
-  const paperContext = useContext(PaperContext);
-  if (!paperContext) {
-    throw new Error("PaperContext not found");
-  }
-  const { nodes, updateNodeData, deleteHighlight, selectedHighlightId, setSelectedHighlightId, setOnSelectNode } = paperContext;
+  const { nodes, updateNodeData, deleteHighlight, selectedHighlightId, setSelectedHighlightId, setOnSelectNode } = usePaperContext();
 
   const [label, setLabel] = useState<string>("");
   const [summary, setSummary] = useState<string>("");
