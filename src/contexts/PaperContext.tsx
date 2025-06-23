@@ -59,7 +59,7 @@ type PaperContextData = {
 
 const PaperContext = createContext<PaperContextData | undefined>(undefined);
 
-type ReadRecord = {
+export type ReadRecord = {
   id: string;
   title: string;
   color: string;

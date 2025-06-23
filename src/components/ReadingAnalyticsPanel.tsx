@@ -36,6 +36,10 @@ function ReadingAnalyticsPanel() {
 
   useEffect(() => {
     setTotalTime(Object.values(readingSessions).reduce((acc, session) => acc + session.duration, 0));
+    processReadStats();
+  }, [readingSessions]);
+
+  const processReadStats = () => {
     // Group by categoryId and sum the durations
     const categoryDurations = Object.values(readingSessions).reduce((acc, session) => {
       acc[session.readId] = (acc[session.readId] || 0) + session.duration;
@@ -59,7 +63,7 @@ function ReadingAnalyticsPanel() {
 
     readStats.sort((a, b) => b.duration - a.duration);
     setReadStats(readStats);
-  }, [readingSessions]);
+  }
 
   return (
     <Box sx={{ p: 2.5, bgcolor: 'white', borderRadius: 1, boxShadow: 1 }}>

@@ -53,7 +53,7 @@ export const Home = () => {
         },
         {
             name: "Try re:ad",
-            url: "./#/paper-reader"
+            url: "./#/papers"
         }
     ]
 

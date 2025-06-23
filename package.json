@@ -21,6 +21,7 @@
     "@mui/material": "^6.4.6",
     "@xyflow/react": "^12.4.4",
     "d3": "^7.9.0",
+    "firebase": "^11.9.1",
     "gh-pages": "^6.3.0",
     "jszip": "^3.10.1",
     "pdfjs-dist": "4.4.168",

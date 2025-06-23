@@ -42,7 +42,7 @@ export const ReadingAnalyticsProvider: React.FC<{ children: React.ReactNode }> =
   const [readingSessions, setReadingSessions] = useState<Record<string, ReadingSession>>({});
 
   const UPDATE_INTERVAL = 500;
-  const updateIntervalRef = useRef<number | null>(null);
+  const updateIntervalRef = useRef<any>(null);
   const currentSessionIdRef = useRef<string | null>(null);
 
   // Save analytics to sessionStorage whenever it changes

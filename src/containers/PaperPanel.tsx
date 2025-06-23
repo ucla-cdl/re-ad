@@ -31,7 +31,6 @@ function PaperPanel() {
     setNodes,
     setEdges,
     setReadRecords,
-    pdfViewer,
     setPdfViewer
   } = usePaperContext();
 

@@ -6,13 +6,17 @@ import { HighlightTimeline } from '../components/HighlightTimeline';
 import { Box, DialogTitle, TextField, Dialog, DialogContent, Button, DialogActions } from "@mui/material";
 import "../styles/PaperReader.css";
 import { usePaperContext } from "../contexts/PaperContext";
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import Joyride, { ACTIONS, CallBackProps, EVENTS, STATUS } from "react-joyride";
 import { TourContext } from "../contexts/TourContext";
+import { useLocation } from "react-router-dom";
 import Split from 'react-split';
+import { useStorageContext } from "../contexts/StorageContext";
 
 export const PaperReader = () => {
-  const { isAddingNewRead, setIsAddingNewRead, createRead } = usePaperContext();
+  const { getPaperFile } = useStorageContext();
+  const { isAddingNewRead, setIsAddingNewRead, createRead, setPaperUrl } = usePaperContext();
+  const location = useLocation();
 
   const tourContext = useContext(TourContext);
   if (!tourContext) {
@@ -23,6 +27,19 @@ export const PaperReader = () => {
   const [title, setTitle] = useState<string | null>("");
   const [color, setColor] = useState<string | null>(null);
   const [viewType, setViewType] = useState<'graph' | 'analytics' | 'timeline'>('graph');
+
+  // Handle paper URL from navigation state
+  useEffect(() => {
+    fetchPaperFile();
+  }, [location.state]);
+
+  const fetchPaperFile = async () => {
+    const state = location.state as { paperId?: string };
+    if (state?.paperId) {
+      const fileUrl = await getPaperFile(state.paperId);
+      setPaperUrl(fileUrl);
+    }
+  }
 
   const handleCreateRead = () => {
     if (!title) {
