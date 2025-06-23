@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useRef } from 'r
 import { usePaperContext } from './PaperContext';
 import { ReadHighlight } from '../components/paper-components/HighlightContainer';
 import { v4 as uuidv4 } from 'uuid';
+import { ReadingState, useStorageContext } from './StorageContext';
 
 /**
  * Reading Analytics:
@@ -27,12 +28,14 @@ export type ReadingSession = {
 
 type ReadingAnalyticsContextData = {
   readingSessions: Record<string, ReadingSession>;
+  saveReadingState: () => void;
 }
 
 const ReadingAnalyticsContext = createContext<ReadingAnalyticsContextData | undefined>(undefined);
 
 export const ReadingAnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentReadId, highlights, pdfViewer } = usePaperContext();
+  const { userId, updateReadingState, getReadingStateData } = useStorageContext();
+  const { currentReadId, highlights, pdfViewer, paperId, nodes, edges, readRecords, setCurrentSessionId } = usePaperContext();
   const highlightsRef = useRef<ReadHighlight[]>(highlights);
 
   useEffect(() => {
@@ -45,16 +48,25 @@ export const ReadingAnalyticsProvider: React.FC<{ children: React.ReactNode }> =
   const updateIntervalRef = useRef<any>(null);
   const currentSessionIdRef = useRef<string | null>(null);
 
-  // Save analytics to sessionStorage whenever it changes
   useEffect(() => {
-    sessionStorage.setItem('readingSessions', JSON.stringify(readingSessions));
-  }, [readingSessions]);
+    loadReadingState();
+  }, [userId, paperId]);
+
+  const loadReadingState = async () => {
+    if (userId && paperId) {
+      const readingStateData = await getReadingStateData(userId, paperId);
+      if (!readingStateData) return;
+      setReadingSessions(readingStateData.state.readingSessions);
+    }
+  }
 
   // Create a new reading session
   const createNewReadingSession = (readId: string) => {
     console.log('Creating new reading session', readId);
 
     const sessionId = uuidv4();
+    setCurrentSessionId(sessionId);
+
     const startTime = Date.now();
 
     setReadingSessions(prev => ({
@@ -98,7 +110,7 @@ export const ReadingAnalyticsProvider: React.FC<{ children: React.ReactNode }> =
     // Stop existing reading session
     stopUpdateReadingSession();
 
-    if (currentReadId !== "-1") {
+    if (currentReadId !== "") {
       // Start new reading session
       const sessionId = createNewReadingSession(currentReadId);
       currentSessionIdRef.current = sessionId;
@@ -129,6 +141,26 @@ export const ReadingAnalyticsProvider: React.FC<{ children: React.ReactNode }> =
     }, UPDATE_INTERVAL);
   };
 
+  // Save the reading state to the database
+  const saveReadingState = () => {
+    if (!userId || !paperId || !currentReadId) return;
+    
+    const readingStateData: ReadingState = {
+      id: `${userId}-${paperId}`,
+      userId: userId,
+      paperId: paperId,
+      state: {
+        highlights: highlightsRef.current,
+        readRecords: readRecords,
+        nodes: nodes,
+        edges: edges,
+        readingSessions: readingSessions,
+      }
+    }
+
+    updateReadingState(readingStateData);
+  }
+
   // Handle page visibility changes
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -149,10 +181,12 @@ export const ReadingAnalyticsProvider: React.FC<{ children: React.ReactNode }> =
     };
   }, [currentSessionIdRef.current]);
 
+
   return (
     <ReadingAnalyticsContext.Provider
       value={{
         readingSessions,
+        saveReadingState,
       }}
     >
       {children}

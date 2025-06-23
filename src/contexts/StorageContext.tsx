@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { initializeApp } from "firebase/app";
 import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
-import { getFirestore, collection, doc, setDoc, getDoc, getDocs, addDoc } from "firebase/firestore";
+import { getFirestore, collection, doc, setDoc, getDoc, getDocs } from "firebase/firestore";
 import { ReadHighlight } from '../components/paper-components/HighlightContainer';
 import { Node, Edge } from '@xyflow/react';
 import { ReadingSession } from './ReadingAnalyticsContext';
@@ -33,7 +33,6 @@ export type ReadingState = {
     state: {
         highlights: ReadHighlight[];
         readRecords: Record<string, ReadRecord>;
-        currentReadId: string;
         nodes: Node[];
         edges: Edge[];
         readingSessions: Record<string, ReadingSession>;
@@ -51,8 +50,8 @@ type StorageContextData = {
     addPaperData: (paperData: PaperData) => Promise<void>;
     getPaperFile: (paperId: string) => Promise<string>;
     addPaperFile: (paperId: string, file: File) => Promise<void>;
-    getReadingStateData: (userId: string, paperId: string) => Promise<ReadingState>;
-    addReadingState: (readingStateData: ReadingState) => Promise<void>;
+    getReadingStateData: (userId: string, paperId: string) => Promise<ReadingState | null>;
+    updateReadingState: (readingStateData: ReadingState) => Promise<void>;
 }
 
 const firebaseConfig = {
@@ -172,15 +171,27 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
 
     // get reading state data
     const getReadingStateData = async (userId: string, paperId: string) => {
-        const readingStateRef = doc(readingStatesCollectionRef, userId, paperId);
+        const readingStateId = `${userId}-${paperId}`;
+        const readingStateRef = doc(readingStatesCollectionRef, readingStateId);
         const readingStateDoc = await getDoc(readingStateRef);
-        return readingStateDoc.data() as ReadingState;
+        const data = readingStateDoc.data();
+        if (!data) return null;
+        const readingStateData = {
+            ...data,
+            state: JSON.parse(data?.state)
+        } as ReadingState;
+
+        console.log("readingStateData", readingStateData);
+        return readingStateData;
     }
 
-    // add reading state data
-    const addReadingState = async (readingStateData: ReadingState) => {
+    // add/update reading state data
+    const updateReadingState = async (readingStateData: ReadingState) => {
         try {
-            await setDoc(doc(readingStatesCollectionRef, readingStateData.id), readingStateData);
+            await setDoc(doc(readingStatesCollectionRef, readingStateData.id), {
+                ...readingStateData,
+                state: JSON.stringify(readingStateData.state)
+            });
             console.log('Reading state added with ID:', readingStateData.id);
         } catch (error) {
             console.error('Error adding reading state:', error);
@@ -201,7 +212,7 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
                 getPaperFile,
                 addPaperFile,
                 getReadingStateData,
-                addReadingState,
+                updateReadingState,
             }}
         >
             {children}

@@ -174,7 +174,7 @@ function PaperPanel() {
                     highlighterUtilsRef.current = _pdfHighlighterUtils;
                   }}
                   selectionTip={
-                    Object.keys(readRecords).length > 0 ? (
+                    Object.keys(readRecords).length > 0 && currentReadId !== "" ? (
                       <ExpandableTip addHighlight={addHighlight} />
                     ) : null
                   }

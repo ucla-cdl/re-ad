@@ -15,7 +15,7 @@ import { useStorageContext } from "../contexts/StorageContext";
 
 export const PaperReader = () => {
   const { getPaperFile } = useStorageContext();
-  const { isAddingNewRead, setIsAddingNewRead, createRead, setPaperUrl } = usePaperContext();
+  const { isAddingNewRead, setIsAddingNewRead, createRead, setPaperUrl, setPaperId } = usePaperContext();
   const location = useLocation();
 
   const tourContext = useContext(TourContext);
@@ -36,6 +36,7 @@ export const PaperReader = () => {
   const fetchPaperFile = async () => {
     const state = location.state as { paperId?: string };
     if (state?.paperId) {
+      setPaperId(state.paperId);  
       const fileUrl = await getPaperFile(state.paperId);
       setPaperUrl(fileUrl);
     }

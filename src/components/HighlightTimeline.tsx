@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { usePaperContext } from '../contexts/PaperContext';
-import { Box, Typography, IconButton } from '@mui/material';
+import { Box, Typography, IconButton, Button } from '@mui/material';
 import { CloudDownload, CloudUpload } from "@mui/icons-material";
 import Tooltip from '@mui/material/Tooltip';
 import * as d3 from "d3";
@@ -11,7 +11,7 @@ export const HighlightTimeline: React.FC = () => {
     // TODO: move the import export to the context file
     const { pdfViewer, highlights, readRecords, nodes, edges, setHighlights, setNodes, setEdges, setReadRecords, paperUrl } = usePaperContext();
 
-    const { readingSessions } = useReadingAnalyticsContext();
+    const { readingSessions, saveReadingState } = useReadingAnalyticsContext();
 
     useEffect(() => {
         drawTimelineGraph();
@@ -55,8 +55,7 @@ export const HighlightTimeline: React.FC = () => {
             .attr("height", chartHeight);
 
         const sessions = Object.values(readingSessions).sort((a, b) => a.startTime - b.startTime);
-        const startTime = sessions[0].startTime;
-        const endTime = sessions[sessions.length - 1].startTime + sessions[sessions.length - 1].duration;
+        const totalDuration = sessions.reduce((acc, session) => acc + session.duration, 0);
 
         if (!pdfViewer) {
             return;
@@ -67,13 +66,13 @@ export const HighlightTimeline: React.FC = () => {
         const pdfTotalHeight = pdfViewer.pagesCount * pdfPageHeight;
 
         const xScale = d3.scaleLinear()
-            .domain([startTime, endTime])
+            .domain([0, totalDuration])
             .range([0, chartWidth]);
 
         const xAxis = d3.axisTop(xScale)
             .tickFormat((d) => {
                 const milliseconds = d as number;
-                const minutes = (milliseconds - startTime) / (1000 * 60);
+                const minutes = (milliseconds) / (1000 * 60);
                 return `${minutes.toFixed(1)}`;
             });
 
@@ -99,23 +98,30 @@ export const HighlightTimeline: React.FC = () => {
             .x((d) => xScale(d[0]))
             .y((d) => yScale(d[1]));
 
+        let durationIntercept = 0;
         sessions.forEach(session => {
+            const scrollSequence = session.scrollSequence.map(scroll => [scroll[0] - session.startTime + durationIntercept, scroll[1]]) as [number, number][];
+
             chart.append("path")
-                .attr("d", line(session.scrollSequence))
+                .attr("d", line(scrollSequence))
                 .attr("fill", "none")
                 .attr("stroke", readRecords[session.readId].color)
                 .attr("stroke-width", 3);
-        });
+            
+            highlights.filter(highlight => highlight.sessionId === session.sessionId).forEach(highlight => {
+                const relativeTime = highlight.timestamp - session.startTime + durationIntercept;
+                const yPosition = (highlight.position.boundingRect.pageNumber - 1) * pdfPageHeight + highlight.position.boundingRect.y1;
 
-        highlights.forEach(highlight => {
-            const yPosition = (highlight.position.boundingRect.pageNumber - 1) * pdfPageHeight + highlight.position.boundingRect.y1;
-            chart.append("circle")
-                .attr("cx", xScale(highlight.timestamp))
-                .attr("cy", yScale(yPosition))
-                .attr("r", 3)
-                .attr("fill", readRecords[highlight.readRecordId].color)
-                .attr("stroke", "black")
-                .attr("stroke-width", 0.5);
+                chart.append("circle")
+                    .attr("cx", xScale(relativeTime))
+                    .attr("cy", yScale(yPosition))
+                    .attr("r", 3)
+                    .attr("fill", readRecords[highlight.readRecordId].color)
+                    .attr("stroke", "black")
+                    .attr("stroke-width", 0.5);
+            });
+
+            durationIntercept += session.duration;
         });
     }
 
@@ -151,6 +157,7 @@ export const HighlightTimeline: React.FC = () => {
 
             <Box id="highlight-timeline-container" sx={{ width: '100%', height: '60%' }} />
 
+            <Button onClick={saveReadingState}>Save Reading State</Button>  
             <Box sx={{ mx: 2, display: 'flex', gap: 1 }}>
                 <Tooltip title="Export Graph">
                     <IconButton onClick={handleExportGraph}>

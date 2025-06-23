@@ -16,9 +16,12 @@ import { NodeData } from "../components/node-components/NodeEditor";
 import { TourContext } from "./TourContext";
 import { PDFViewer } from "pdfjs-dist/types/web/pdf_viewer";
 import { v4 as uuidv4 } from 'uuid';
+import { useStorageContext } from "./StorageContext";
 
 type PaperContextData = {
   // Paper
+  paperId: string | null;
+  setPaperId: (paperId: string | null) => void;
   paperUrl: string | null;
   setPaperUrl: (paperUrl: string | null) => void;
   highlights: Array<ReadHighlight>;
@@ -49,6 +52,8 @@ type PaperContextData = {
   createRead: (title: string, color: string) => void;
   currentReadId: string;
   setCurrentReadId: (readId: string) => void;
+  currentSessionId: string;
+  setCurrentSessionId: (sessionId: string) => void;
   setReadRecords: (readRecords: Record<string, ReadRecord>) => void;
   displayedReads: Array<string>;
   hideRead: (readId: string) => void;
@@ -82,8 +87,11 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     throw new Error("TourContext not found");
   }
   const { setRunTour } = tourContext;
+
+  const { userId, getReadingStateData } = useStorageContext();
   
   // Paper
+  const [paperId, setPaperId] = useState<string | null>(null);
   const [paperUrl, setPaperUrl] = useState<string | null>(null);
   const [highlights, setHighlights] = useState<Array<ReadHighlight>>([]);
   const [chronologicalSeq, setChronologicalSeq] = useState(0);
@@ -92,7 +100,8 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   // Shared
   const [readRecords, setReadRecords] = useState<Record<string, ReadRecord>>({});
   const [isAddingNewRead, setIsAddingNewRead] = useState(false);
-  const [currentReadId, setCurrentReadId] = useState("-1");
+  const [currentReadId, setCurrentReadId] = useState("");
+  const [currentSessionId, setCurrentSessionId] = useState("");
   const [selectedHighlightId, setSelectedHighlightId] = useState<string | null>(null);
   const [displayedReads, setDisplayedReads] = useState<Array<string>>([]);
 
@@ -103,6 +112,24 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   const [displayEdgeTypes, setDisplayEdgeTypes] = useState<Array<string>>([EDGE_TYPES.CHRONOLOGICAL, EDGE_TYPES.RELATIONAL]);
   const NODE_OFFSET_X = 150;
   const NODE_OFFSET_Y = 150;
+
+  useEffect(() => {
+    loadReadingState();
+  }, [userId, paperId]);
+
+  const loadReadingState = async () => {
+    if (userId && paperId) {
+      const readingStateData = await getReadingStateData(userId, paperId);
+      if (!readingStateData) return;
+
+      setHighlights(readingStateData.state.highlights);
+      setReadRecords(readingStateData.state.readRecords);
+      setNodes(readingStateData.state.nodes);
+      setEdges(readingStateData.state.edges);
+
+      setDisplayedReads(Object.keys(readingStateData.state.readRecords));
+    }
+  }
 
   useEffect(() => {
     setChronologicalSeq(highlights.filter((h) => h.id.startsWith(currentReadId.toString())).length);
@@ -157,6 +184,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         ...highlight,
         id: id,
         readRecordId: currentReadId,
+        sessionId: currentSessionId,
         timestamp: Date.now(),
       },
     ]);
@@ -335,6 +363,8 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     <PaperContext.Provider
       value={{
         // Paper
+        paperId,
+        setPaperId,
         paperUrl,
         setPaperUrl,
         highlights,
@@ -365,6 +395,8 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         createRead,
         currentReadId,
         setCurrentReadId,
+        currentSessionId,
+        setCurrentSessionId,
         displayedReads,
         setReadRecords,
         hideRead,

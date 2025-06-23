@@ -12,7 +12,6 @@ import {
     TableRow,
     TableCell,
     Avatar,
-    IconButton,
     Stack,
     Skeleton,
     Paper,
@@ -27,7 +26,7 @@ import {
     PictureAsPdf as PdfIcon,
     CloudUpload as UploadIcon,
 } from '@mui/icons-material';
-import { useStorageContext, PaperData, PaperFile } from '../contexts/StorageContext';
+import { useStorageContext, PaperData } from '../contexts/StorageContext';
 import { v4 as uuidv4 } from 'uuid';
 import { useNavigate } from 'react-router-dom';
 
@@ -49,7 +48,7 @@ export const PapersHub = () => {
         file: new File([], '')
     });
 
-    const { userId, getUser, getAllPapersData, addPaperData, addPaperFile, getPaperData, addPaperToUser, getPaperFile } = useStorageContext();
+    const { userId, getUser, getAllPapersData, addPaperData, addPaperFile, addPaperToUser } = useStorageContext();
 
     useEffect(() => {
         loadPapers();

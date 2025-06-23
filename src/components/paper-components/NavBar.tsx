@@ -15,6 +15,7 @@ import { FormControlLabel } from "@mui/material";
 import { Add, Analytics, Timeline as TimelineIcon, TipsAndUpdates } from "@mui/icons-material";
 import logo from "/re-ad-logo.svg";
 import { TourContext } from "../../contexts/TourContext";
+import { useNavigate } from "react-router-dom";
 
 interface NavBarProps {
   onAnalyticsClick: () => void;
@@ -23,7 +24,7 @@ interface NavBarProps {
 
 export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProps) {
   const { paperUrl, readRecords, currentReadId, setCurrentReadId, setIsAddingNewRead, displayedReads, hideRead, showRead } = usePaperContext();
-
+  const navigate = useNavigate();
   const tourContext = useContext(TourContext);
   if (!tourContext) {
     throw new Error("TourContext not found");
@@ -48,7 +49,9 @@ export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProp
   return (
     <div className="NavBar">
       <div className="logo-text">
-        <img src={logo} height={40} alt="re:ad" />
+        <img src={logo} height={40} alt="re:ad" style={{ cursor: "pointer" }} onClick={() => {
+          navigate("/papers");
+        }} />
         <IconButton sx={{ ml: 3 }} className="mui-button" size="small" onClick={handleStartTour}>
           <TipsAndUpdates />
         </IconButton>
@@ -109,13 +112,13 @@ export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProp
                 onChange={(e) => setCurrentReadId(e.target.value)}
                 sx={{
                   "& .MuiOutlinedInput-notchedOutline": {
-                    borderColor: readRecords[currentReadId].color,
+                    borderColor: readRecords[currentReadId]?.color,
                   },
                   "&:hover .MuiOutlinedInput-notchedOutline": {
-                    borderColor: readRecords[currentReadId].color,
+                    borderColor: readRecords[currentReadId]?.color,
                   },
                   "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                    borderColor: readRecords[currentReadId].color,
+                    borderColor: readRecords[currentReadId]?.color,
                   },
                 }}
               >

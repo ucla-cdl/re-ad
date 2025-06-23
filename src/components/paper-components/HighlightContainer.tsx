@@ -8,6 +8,7 @@ import { Content, Highlight } from "react-pdf-highlighter-extended";
 export interface ReadHighlight extends Highlight {
     id: string;
     readRecordId: string;
+    sessionId: string;
     content: Content;
     timestamp: number;
 }
