@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
     Box,
-    Container,
     Typography,
     TextField,
     InputAdornment,
@@ -32,7 +31,6 @@ import {
     PictureAsPdf as PdfIcon,
     CloudUpload as UploadIcon,
     Person as PersonIcon,
-    Settings as SettingsIcon,
     Logout as LogoutIcon,
     Edit as EditIcon,
     MoreVert as MoreVertIcon,
@@ -40,6 +38,7 @@ import {
 import { useStorageContext, PaperData, UserRole } from '../contexts/StorageContext';
 import { v4 as uuidv4 } from 'uuid';
 import { useNavigate } from 'react-router-dom';
+import icon from "/re-ad-icon.svg"
 import '../styles/PapersHub.css';
 
 type uploadPaperData = {
@@ -333,7 +332,7 @@ export const PapersHub = () => {
             <Box sx={{ mb: 4 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <img height={40} src="/re-ad-icon.svg" alt="re:ad" />
+                        <img height={40} src={icon} alt="re:ad" />
                         <Typography variant="h4" component="h1" fontWeight="bold">
                             Papers Hub
                         </Typography>

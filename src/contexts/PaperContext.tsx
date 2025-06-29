@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { GhostHighlight } from "react-pdf-highlighter-extended";
 import {
   type Node,
@@ -17,6 +17,8 @@ import { TourContext } from "./TourContext";
 import { PDFViewer } from "pdfjs-dist/types/web/pdf_viewer";
 import { v4 as uuidv4 } from 'uuid';
 import { useStorageContext } from "./StorageContext";
+import { GoogleGenAI, Type } from "@google/genai";
+import { READING_GOAL_GENERATE_PROMPT, READING_GOAL_SYSTEM_PROMPT } from "../utils/prompts";
 
 type PaperContextData = {
   // Paper
@@ -24,14 +26,14 @@ type PaperContextData = {
   setPaperId: (paperId: string | null) => void;
   paperUrl: string | null;
   setPaperUrl: (paperUrl: string | null) => void;
+  generateReadingGoals: () => Promise<ReadingGoal[]>;
   highlights: Array<ReadHighlight>;
   addHighlight: (highlight: GhostHighlight) => void;
   updateNodeData: (nodeId: string, data: Partial<NodeData>) => void;
   setHighlights: (highlights: Array<ReadHighlight>) => void;
   deleteHighlight: (highlightId: string) => void;
   resetHighlights: () => void;
-  pdfViewer: PDFViewer | null;
-  setPdfViewer: (pdfViewer: PDFViewer | null) => void;
+  pdfViewerRef: React.RefObject<PDFViewer | null>;
   // Graph
   nodes: Array<Node>;
   setNodes: (nodes: Array<Node>) => void;
@@ -47,8 +49,6 @@ type PaperContextData = {
   setDisplayEdgeTypes: (displayEdgeTypes: Array<string>) => void;
   // Shared
   readRecords: Record<string, ReadRecord>;
-  isAddingNewRead: boolean;
-  setIsAddingNewRead: (isAddingNewRead: boolean) => void;
   createRead: (title: string, color: string) => void;
   currentReadId: string;
   setCurrentReadId: (readId: string) => void;
@@ -60,6 +60,8 @@ type PaperContextData = {
   showRead: (readId: string) => void;
   selectedHighlightId: string | null;
   setSelectedHighlightId: (highlightId: string | null) => void;
+  // LLM
+  query_gemini: (prompt: string, data: any) => Promise<string>;
 };
 
 const PaperContext = createContext<PaperContextData | undefined>(undefined);
@@ -68,7 +70,13 @@ export type ReadRecord = {
   id: string;
   title: string;
   color: string;
+  description?: string;
 };
+
+export type ReadingGoal = {
+  goalName: string;
+  goalDescription: string;
+}
 
 export const NODE_TYPES = {
   HIGHLIGHT: "highlight",
@@ -81,12 +89,14 @@ export const EDGE_TYPES = {
   RELATIONAL: "relational",
 }
 
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+
 export const PaperContextProvider = ({ children }: { children: React.ReactNode }) => {
   const tourContext = useContext(TourContext);
   if (!tourContext) {
     throw new Error("TourContext not found");
-  }
-  const { setRunTour } = tourContext;
+    }
+    // const { setRunTour } = tourContext;
 
   const { userData, getReadingStateData } = useStorageContext();
 
@@ -95,11 +105,10 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   const [paperUrl, setPaperUrl] = useState<string | null>(null);
   const [highlights, setHighlights] = useState<Array<ReadHighlight>>([]);
   const [chronologicalSeq, setChronologicalSeq] = useState(0);
-  const [pdfViewer, setPdfViewer] = useState<PDFViewer | null>(null);
+  const pdfViewerRef = useRef<PDFViewer | null>(null);
 
   // Shared
   const [readRecords, setReadRecords] = useState<Record<string, ReadRecord>>({});
-  const [isAddingNewRead, setIsAddingNewRead] = useState(false);
   const [currentReadId, setCurrentReadId] = useState("");
   const [currentSessionId, setCurrentSessionId] = useState("");
   const [selectedHighlightId, setSelectedHighlightId] = useState<string | null>(null);
@@ -112,6 +121,9 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   const [displayEdgeTypes, setDisplayEdgeTypes] = useState<Array<string>>([EDGE_TYPES.CHRONOLOGICAL, EDGE_TYPES.RELATIONAL]);
   const NODE_OFFSET_X = 150;
   const NODE_OFFSET_Y = 150;
+
+  // LLM
+  const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
   useEffect(() => {
     loadPaperContext();
@@ -164,18 +176,22 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     })));
   }, [displayEdgeTypes]);
 
-  const onConnect = useCallback((connection: Connection) => {
-    console.log("Connect", connection);
-    const edge = {
-      ...connection,
-      sourceHandle: `relational-handle-${connection.source}-source`,
-      targetHandle: `relational-handle-${connection.target}-target`,
-      type: EDGE_TYPES.RELATIONAL,
-      markerEnd: { type: MarkerType.Arrow },
-      hidden: !displayEdgeTypes.includes(EDGE_TYPES.RELATIONAL)
-    };
-    setEdges((prevEdges) => addEdge(edge, prevEdges));
-  }, []);
+  const generateReadingGoals = async () => {
+    if (!pdfViewerRef.current) return [] as ReadingGoal[];
+
+    const paperContent = await pdfViewerRef.current.getAllText();
+
+    const completedGoals = Object.values(readRecords).map((r) => r.title + ": " + r.description).join("\n");
+    const prompt = READING_GOAL_GENERATE_PROMPT + "\n\n" + completedGoals + "\n\n" + "Below is the full text of the paper:\n" + paperContent;
+
+    const response = await query_gemini(prompt);
+
+    if (response) {
+      return JSON.parse(response) as ReadingGoal[];
+    }
+
+    return [] as ReadingGoal[];
+  }
 
   const processHighlightText = (highlight: GhostHighlight) => {
     if (highlight.type === "text") {
@@ -273,6 +289,19 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
 
     setNodes(currentNodes);
   };
+
+  const onConnect = useCallback((connection: Connection) => {
+    console.log("Connect", connection);
+    const edge = {
+      ...connection,
+      sourceHandle: `relational-handle-${connection.source}-source`,
+      targetHandle: `relational-handle-${connection.target}-target`,
+      type: EDGE_TYPES.RELATIONAL,
+      markerEnd: { type: MarkerType.Arrow },
+      hidden: !displayEdgeTypes.includes(EDGE_TYPES.RELATIONAL)
+    };
+    setEdges((prevEdges) => addEdge(edge, prevEdges));
+  }, []);
 
   const createGroupNode = (nodeIds: string[]) => {
     if (nodeIds.length === 0) return;
@@ -381,6 +410,34 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     setDisplayedReads((prevDisplayedReads) => [...prevDisplayedReads, readId]);
   };
 
+  const query_gemini = async (prompt: string, data?: any) => {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents:
+        prompt + (data ? "\n" + data : ""),
+      config: {
+        systemInstruction: READING_GOAL_SYSTEM_PROMPT,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              goalName: {
+                type: Type.STRING,
+              },
+              goalDescription: {
+                type: Type.STRING,
+              },
+            }
+          },
+        },
+      },
+    });
+
+    return response.text ?? "";
+  }
+
   return (
     <PaperContext.Provider
       value={{
@@ -389,14 +446,14 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         setPaperId,
         paperUrl,
         setPaperUrl,
+        generateReadingGoals,
         highlights,
         setHighlights,
         addHighlight,
         updateNodeData,
         deleteHighlight,
         resetHighlights,
-        pdfViewer,
-        setPdfViewer,
+        pdfViewerRef,
         // Graph
         nodes,
         setNodes,
@@ -412,8 +469,6 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         setDisplayEdgeTypes,
         // Shared
         readRecords,
-        isAddingNewRead,
-        setIsAddingNewRead,
         createRead,
         currentReadId,
         setCurrentReadId,
@@ -425,6 +480,8 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         showRead,
         selectedHighlightId,
         setSelectedHighlightId,
+        // LLM
+        query_gemini,
       }}
     >
       {children}

@@ -6,7 +6,7 @@ import { useReadingAnalyticsContext } from '../contexts/ReadingAnalyticsContext'
 
 export const HighlightTimeline: React.FC = () => {
     // TODO: move the import export to the context file
-    const { pdfViewer, highlights, readRecords } = usePaperContext();
+    const { pdfViewerRef, highlights, readRecords } = usePaperContext();
 
     const { readingSessions, saveReadingState } = useReadingAnalyticsContext();
 
@@ -54,13 +54,13 @@ export const HighlightTimeline: React.FC = () => {
         const sessions = Object.values(readingSessions).sort((a, b) => a.startTime - b.startTime);
         const totalDuration = sessions.reduce((acc, session) => acc + session.duration, 0);
 
-        if (!pdfViewer) {
+        if (!pdfViewerRef.current) {
             return;
         }
 
         // TODO: the height might be different for each page OR the scale might be different -- need to figure out for robust visualization
-        const pdfPageHeight = pdfViewer.getPageView(0).height;
-        const pdfTotalHeight = pdfViewer.pagesCount * pdfPageHeight;
+        const pdfPageHeight = pdfViewerRef.current.getPageView(0).height;
+        const pdfTotalHeight = pdfViewerRef.current.pagesCount * pdfPageHeight;
 
         const xScale = d3.scaleLinear()
             .domain([0, totalDuration])

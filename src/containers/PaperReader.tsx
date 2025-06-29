@@ -3,7 +3,7 @@ import PaperPanel from "./PaperPanel";
 import GraphPanel from "./GraphPanel";
 import ReadingAnalyticsPanel from "../components/ReadingAnalyticsPanel";
 import { HighlightTimeline } from '../components/HighlightTimeline';
-import { Box, DialogTitle, TextField, Dialog, DialogContent, Button, DialogActions } from "@mui/material";
+import { Box } from "@mui/material";
 import "../styles/PaperReader.css";
 import { usePaperContext } from "../contexts/PaperContext";
 import { useContext, useState, useEffect } from "react";
@@ -15,7 +15,7 @@ import { useStorageContext } from "../contexts/StorageContext";
 
 export const PaperReader = () => {
   const { getPaperFile } = useStorageContext();
-  const { isAddingNewRead, setIsAddingNewRead, createRead, setPaperUrl, setPaperId } = usePaperContext();
+  const { setPaperUrl, setPaperId } = usePaperContext();
   const location = useLocation();
 
   const tourContext = useContext(TourContext);
@@ -24,8 +24,6 @@ export const PaperReader = () => {
   }
   const { setRunTour, runTour, steps, stepIndex, setStepIndex } = tourContext;
 
-  const [title, setTitle] = useState<string | null>("");
-  const [color, setColor] = useState<string | null>(null);
   const [viewType, setViewType] = useState<'graph' | 'analytics' | 'timeline'>('graph');
 
   // Handle paper URL from navigation state
@@ -42,27 +40,6 @@ export const PaperReader = () => {
     }
   }
 
-  const handleCreateRead = () => {
-    if (!title) {
-      alert("Please enter a title");
-      return;
-    }
-
-    if (!color) {
-      alert("Please select a color");
-      return;
-    }
-
-    createRead(title, color);
-    handleCancel();
-  };
-
-  const handleCancel = () => {
-    setTitle("");
-    setColor(null);
-    setIsAddingNewRead(false);
-  };
-
   const handleTourCallback = (data: CallBackProps) => {
     const { action, index, status, type, step } = data;
 
@@ -76,17 +53,6 @@ export const PaperReader = () => {
       setRunTour(false);
     }
   };
-
-  const colorPalette = [
-    "#FFADAD",
-    "#FFD6A5",
-    "#FDFFB6",
-    "#CAFFBF",
-    "#9BF6FF",
-    "#A0C4FF",
-    "#BDB2FF",
-    "#FFC6FF"
-  ];
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", width: "100vw", height: "100vh" }}>
@@ -130,43 +96,6 @@ export const PaperReader = () => {
           </Box>
         </Split>
       </Box>
-
-      <Dialog open={isAddingNewRead}>
-        <DialogTitle>Create New Read</DialogTitle>
-        <DialogContent sx={{ p: 3, display: "flex", flexDirection: "column", alignItems: "center" }}>
-          <TextField
-            label="Title"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            style={{ padding: 4 }}
-          />
-
-          <Box sx={{ my: 2, display: "flex", flexDirection: "row", alignItems: "center" }}>
-            {colorPalette.map((c) => (
-              <Box
-                key={c}
-                sx={{
-                  width: 20,
-                  height: 20,
-                  backgroundColor: c,
-                  borderRadius: 4,
-                  margin: 1,
-                  border: c === color ? "2px solid black" : "none"
-                }}
-                onClick={() => setColor(c)}
-              />
-            ))}
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button variant="text" color="error" onClick={handleCancel}>
-            Cancel
-          </Button>
-          <Button variant="text" onClick={handleCreateRead}>
-            Create
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 };

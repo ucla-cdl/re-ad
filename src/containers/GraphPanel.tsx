@@ -84,6 +84,7 @@ function Flow(props: any) {
   };
 
   const onNodeDoubleClick: NodeMouseHandler = (event, node) => {
+    console.log("onNodeDoubleClick", node);
     if (isOverview || !event) return;
 
     setOnSelectNode((prev: boolean) => !prev);

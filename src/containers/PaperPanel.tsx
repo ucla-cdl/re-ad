@@ -26,12 +26,11 @@ function PaperPanel() {
     currentReadId,
     readRecords,
     displayedReads,
-    onSelectNode,
     setHighlights,
     setNodes,
     setEdges,
     setReadRecords,
-    setPdfViewer
+    pdfViewerRef
   } = usePaperContext();
 
   const tourContext = useContext(TourContext);
@@ -170,7 +169,7 @@ function PaperPanel() {
                   enableAreaSelection={(event) => event.altKey}
                   pdfDocument={pdfDocument}
                   utilsRef={(_pdfHighlighterUtils) => {
-                    setPdfViewer(_pdfHighlighterUtils.getViewer());
+                    pdfViewerRef.current = _pdfHighlighterUtils.getViewer();
                     highlighterUtilsRef.current = _pdfHighlighterUtils;
                   }}
                   selectionTip={

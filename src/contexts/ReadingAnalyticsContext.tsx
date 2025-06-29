@@ -35,7 +35,7 @@ const ReadingAnalyticsContext = createContext<ReadingAnalyticsContextData | unde
 
 export const ReadingAnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { userData, updateReadingState, getReadingStateData } = useStorageContext();
-  const { currentReadId, highlights, pdfViewer, paperId, nodes, edges, readRecords, setCurrentSessionId } = usePaperContext();
+  const { currentReadId, highlights, pdfViewerRef, paperId, nodes, edges, readRecords, setCurrentSessionId } = usePaperContext();
   const highlightsRef = useRef<ReadHighlight[]>(highlights);
 
   useEffect(() => {
@@ -88,7 +88,7 @@ export const ReadingAnalyticsProvider: React.FC<{ children: React.ReactNode }> =
         startTime: startTime,
         duration: 0,
         // TODO: scroll position need to be stored as a normalized value, not depend on the scale of the pdf viewer
-        scrollSequence: [[startTime, pdfViewer?.scroll.lastY || 0]],
+        scrollSequence: [[startTime, pdfViewerRef.current?.scroll.lastY || 0]],
       },
     }));
 
@@ -110,7 +110,7 @@ export const ReadingAnalyticsProvider: React.FC<{ children: React.ReactNode }> =
         duration: timestamp - prev[sessionId].startTime,
         scrollSequence: [
           ...prev[sessionId].scrollSequence, 
-          [timestamp, pdfViewer?.scroll.lastY || 0]
+          [timestamp, pdfViewerRef.current?.scroll.lastY || 0]
         ],
       },
     }));

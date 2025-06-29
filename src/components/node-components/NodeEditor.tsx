@@ -4,7 +4,6 @@ import "../../styles/NodeEditor.css";
 import { Box, Button, IconButton, TextField } from "@mui/material";
 import { usePaperContext } from "../../contexts/PaperContext";
 import { Close } from "@mui/icons-material";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export type NodeData = {
   label: string;
@@ -15,11 +14,10 @@ export type NodeData = {
   type: string;
 };
 
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-const genAI = new GoogleGenerativeAI(apiKey || "");
+
 
 function NodeEditor() {
-  const { nodes, updateNodeData, deleteHighlight, selectedHighlightId, setSelectedHighlightId, setOnSelectNode } = usePaperContext();
+  const { nodes, updateNodeData, deleteHighlight, selectedHighlightId, setSelectedHighlightId, setOnSelectNode, query_gemini } = usePaperContext();
 
   const [label, setLabel] = useState<string>("");
   const [summary, setSummary] = useState<string>("");
@@ -27,6 +25,8 @@ function NodeEditor() {
   const [notes, setNotes] = useState<string>("");
   const [edited, setEdited] = useState<boolean>(false);
   const [closing, setClosing] = useState<boolean>(false);
+  
+  const summarizing = false;
 
   // Fetch node data from the nodes array when the selected highlight changes
   useEffect(() => {
@@ -41,7 +41,7 @@ function NodeEditor() {
       setEdited(false);
       setClosing(false);
 
-      if (!selectedNode.data.summary) {
+      if (summarizing) {
         generateSummary(content, type);
       }
     }
@@ -55,15 +55,11 @@ function NodeEditor() {
     }
 
     try {
-      // Load the Gemini 1.5 Flash model
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      
       // Summarize text content
       if (type === "text") {
-        const summaryPrompt = `Summarize this in three sentences or less or if it's a single word/phrase give the definition: "${content}"`;
-        const response = await model.generateContent(summaryPrompt);
-        const result = await response.response;
-        setSummary(result.text() || "No summary available.");
+        const summaryPrompt = `Summarize this in three sentences or less or if it's a single word/phrase give the definition:`;
+        const summary = await query_gemini(summaryPrompt, content);
+        setSummary(summary || "No summary available.");
       
         // Summarize image content
       } else if (type === "area") {
@@ -76,9 +72,8 @@ function NodeEditor() {
         };
         
         const imagePrompt = "Describe this image in detail, focusing on any text, diagrams, or important visual elements:";
-        const response = await model.generateContent([imagePrompt, imageData]);
-        const result = await response.response;
-        setSummary(result.text() || "No description available.");
+        const description = await query_gemini(imagePrompt, imageData);
+        setSummary(description || "No description available.");
       }
     } catch (error) {
       console.error("Error fetching summary:", error);
@@ -139,12 +134,12 @@ function NodeEditor() {
           }}
         />
       </Box>
-      <Box className="field summary-container">
+      {/* <Box className="field summary-container">
         <h3 className="summary-title">Definition / Summary</h3>
         <p className="summary-generated">
           <span className="summary-label">(From Gemini)</span> {summary || "Generating summary..."}
         </p>
-      </Box>
+      </Box> */}
       {/* <References className="field" /> */}
       <Box className="field">
         <h3>Notes</h3>
