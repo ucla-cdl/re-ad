@@ -1,16 +1,24 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { initializeApp } from "firebase/app";
 import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
-import { getFirestore, collection, doc, setDoc, getDoc, getDocs } from "firebase/firestore";
+import { getFirestore, collection, doc, setDoc, getDoc, getDocs, where, query } from "firebase/firestore";
 import { ReadHighlight } from '../components/paper-components/HighlightContainer';
 import { Node, Edge } from '@xyflow/react';
 import { ReadingSession } from './ReadingAnalyticsContext';
 import { ReadRecord } from "./PaperContext";
 
+export enum UserRole {
+    ADMIN = 'admin',
+    TEACHER = 'teacher',
+    STUDENT = 'student'
+}
+
 export type UserData = {
-    id?: string;
+    id: string;
     email: string;
+    password: string;
     name: string;
+    role: UserRole;
     paperIds: string[];
 }
 
@@ -40,10 +48,14 @@ export type ReadingState = {
 }
 
 type StorageContextData = {
-    userId: string | undefined;
+    userData: UserData | undefined;
+    setUserData: (userData: UserData | undefined) => void;
+    loadUserData: (userId: string) => Promise<void>;
     getAllUsers: () => Promise<UserData[]>;
-    getUser: (id: string) => Promise<UserData>;
+    getUserById: (id: string) => Promise<UserData | null>;
+    getUserByEmail: (email: string) => Promise<UserData | null>;
     addUser: (userData: UserData) => Promise<void>;
+    updateUser: (userData: UserData) => Promise<void>;
     addPaperToUser: (userId: string, paperId: string) => Promise<void>;
     getAllPapersData: () => Promise<PaperData[]>;
     getPaperData: (paperId: string) => Promise<PaperData>;
@@ -75,16 +87,19 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
 
     const storage = getStorage(app);
 
-    const [userId, setUserId] = useState<string | undefined>(undefined);
+    const [userData, setUserData] = useState<UserData | undefined>(undefined);
 
     useEffect(() => {
-        // For testing purposes, set the current user ID to 'test-user'
-        sessionStorage.setItem('userId', 'test-user');
-        const userId = sessionStorage.getItem('userId');
+        const userId = localStorage.getItem('userId');
         if (userId) {
-            setUserId(userId);
+            loadUserData(userId);
         }
     }, []);
+
+    const loadUserData = async (userId: string) => {
+        const userData = await getUserById(userId);
+        setUserData(userData);
+    }
 
     const getAllUsers = async () => {
         const userDocs = await getDocs(usersCollectionRef);
@@ -92,10 +107,18 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
         return userDocs.docs.map((doc) => doc.data() as UserData);
     }
 
-    const getUser = async (id: string) => {
+    const getUserById = async (id: string) => {
         const userDoc = await getDoc(doc(usersCollectionRef, id));
-        console.log("userDoc", userDoc.data());
         return userDoc.data() as UserData;
+    }
+
+    const getUserByEmail = async (email: string) => {
+        const q = query(usersCollectionRef, where('email', '==', email));
+        const querySnapshot = await getDocs(q);
+        if (querySnapshot.empty) {
+            return null;
+        }
+        return querySnapshot.docs[0].data() as UserData;
     }
 
     // add user data
@@ -105,6 +128,16 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
             console.log('User added with ID:', userData.id);
         } catch (error) {
             console.error('Error adding user:', error);
+        }
+    }
+
+    // update user data
+    const updateUser = async (userData: UserData) => {
+        try {
+            await setDoc(doc(usersCollectionRef, userData.id), userData);
+            console.log('User updated with ID:', userData.id);
+        } catch (error) {
+            console.error('Error updating user:', error);
         }
     }
 
@@ -201,10 +234,14 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
     return (
         <StorageContext.Provider
             value={{
-                userId,
+                userData,
+                setUserData,
+                loadUserData,
                 getAllUsers,
-                getUser,
+                getUserById,
+                getUserByEmail,
                 addUser,
+                updateUser,
                 addPaperToUser,
                 getAllPapersData,
                 getPaperData,

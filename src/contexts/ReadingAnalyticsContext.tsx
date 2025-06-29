@@ -34,7 +34,7 @@ type ReadingAnalyticsContextData = {
 const ReadingAnalyticsContext = createContext<ReadingAnalyticsContextData | undefined>(undefined);
 
 export const ReadingAnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { userId, updateReadingState, getReadingStateData } = useStorageContext();
+  const { userData, updateReadingState, getReadingStateData } = useStorageContext();
   const { currentReadId, highlights, pdfViewer, paperId, nodes, edges, readRecords, setCurrentSessionId } = usePaperContext();
   const highlightsRef = useRef<ReadHighlight[]>(highlights);
 
@@ -50,13 +50,24 @@ export const ReadingAnalyticsProvider: React.FC<{ children: React.ReactNode }> =
 
   useEffect(() => {
     loadReadingState();
-  }, [userId, paperId]);
+  }, [userData, paperId]);
+
+  const resetReadingAnalyticsContext = () => {
+    setReadingSessions({});
+    updateIntervalRef.current = null;
+    currentSessionIdRef.current = null;
+  }
 
   const loadReadingState = async () => {
-    if (userId && paperId) {
-      const readingStateData = await getReadingStateData(userId, paperId);
-      if (!readingStateData) return;
-      setReadingSessions(readingStateData.state.readingSessions);
+    if (userData && paperId) {
+      console.log("load reading analytics context", userData, paperId);
+      const readingStateData = await getReadingStateData(userData.id, paperId);
+      
+      if (readingStateData) {
+        setReadingSessions(readingStateData.state.readingSessions);
+      } else {
+        resetReadingAnalyticsContext();
+      }
     }
   }
 
@@ -143,11 +154,11 @@ export const ReadingAnalyticsProvider: React.FC<{ children: React.ReactNode }> =
 
   // Save the reading state to the database
   const saveReadingState = () => {
-    if (!userId || !paperId || !currentReadId) return;
+    if (!userData || !paperId || !currentReadId) return;
     
     const readingStateData: ReadingState = {
-      id: `${userId}-${paperId}`,
-      userId: userId,
+      id: `${userData.id}-${paperId}`,
+      userId: userData.id,
       paperId: paperId,
       state: {
         highlights: highlightsRef.current,

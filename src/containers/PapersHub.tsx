@@ -19,16 +19,28 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
+    Divider,
+    Menu,
+    MenuItem,
+    ListItemIcon,
+    ListItemText,
+    IconButton,
 } from '@mui/material';
 import {
     Search as SearchIcon,
     Add as AddIcon,
     PictureAsPdf as PdfIcon,
     CloudUpload as UploadIcon,
+    Person as PersonIcon,
+    Settings as SettingsIcon,
+    Logout as LogoutIcon,
+    Edit as EditIcon,
+    MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
-import { useStorageContext, PaperData } from '../contexts/StorageContext';
+import { useStorageContext, PaperData, UserRole } from '../contexts/StorageContext';
 import { v4 as uuidv4 } from 'uuid';
 import { useNavigate } from 'react-router-dom';
+import '../styles/PapersHub.css';
 
 type uploadPaperData = {
     title: string;
@@ -37,22 +49,43 @@ type uploadPaperData = {
 
 export const PapersHub = () => {
     const navigate = useNavigate();
-    const [searchQuery, setSearchQuery] = useState('');
+
+    const [loginDialogOpen, setLoginDialogOpen] = useState(false);
+    const [isLoginMode, setIsLoginMode] = useState(true); // true for login, false for register
+    const [loginEmail, setLoginEmail] = useState('');
+    const [loginPassword, setLoginPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [inputError, setInputError] = useState({
+        email: false,
+        password: false,
+        confirmPassword: false
+    });
+    const [errorText, setErrorText] = useState({
+        email: '',
+        password: '',
+        confirmPassword: ''
+    });
+
     const [papers, setPapers] = useState<PaperData[]>([]);
+    const [searchQuery, setSearchQuery] = useState('');
     const [filteredPapers, setFilteredPapers] = useState<PaperData[]>([]);
 
     const [loading, setLoading] = useState(true);
-    const [dialogOpen, setDialogOpen] = useState(false);
+    const [addPaperDialogOpen, setAddPaperDialogOpen] = useState(false);
     const [uploadPaper, setUploadPaper] = useState<uploadPaperData>({
         title: '',
         file: new File([], '')
     });
 
-    const { userId, getUser, getAllPapersData, addPaperData, addPaperFile, addPaperToUser } = useStorageContext();
+    const { userData, setUserData, loadUserData, addUser, updateUser, getUserByEmail, getAllPapersData, addPaperData, addPaperFile, addPaperToUser } = useStorageContext();
+
+    const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(null);
+    const [editProfileDialogOpen, setEditProfileDialogOpen] = useState(false);
+    const [editedUserName, setEditedUserName] = useState('');
 
     useEffect(() => {
         loadPapers();
-    }, [userId]);
+    }, [userData]);
 
     useEffect(() => {
         // Filter papers based on search query
@@ -64,9 +97,8 @@ export const PapersHub = () => {
 
     const loadPapers = async () => {
         try {
-            if (!userId) return;
+            if (!userData) return;
             setLoading(true);
-            const userData = await getUser(userId);
             const paperData = await getAllPapersData();
             setPapers(paperData.filter(paper => userData.paperIds.includes(paper.id)));
         } catch (error) {
@@ -82,13 +114,13 @@ export const PapersHub = () => {
             title: '',
             file: new File([], '')
         });
-        setDialogOpen(true);
+        setAddPaperDialogOpen(true);
     };
 
     const handleSavePaper = async () => {
         try {
             // Validate required fields
-            if (!userId) {
+            if (!userData) {
                 alert('Please login to add a paper');
                 return;
             }
@@ -119,13 +151,13 @@ export const PapersHub = () => {
             await addPaperData(paperData);
 
             // Add paper to user
-            await addPaperToUser(userId, paperId);
+            await addPaperToUser(userData.id, paperId);
 
             // Refresh papers list
             await loadPapers();
 
             // Close dialog
-            setDialogOpen(false);
+            setAddPaperDialogOpen(false);
 
             console.log('Paper saved successfully');
         } catch (error) {
@@ -148,14 +180,232 @@ export const PapersHub = () => {
         navigate(`/paper-reader`, { state: { paperId: paperId } });
     }
 
+    const validateAuth = async () => {
+        // Reset error states
+        setInputError({
+            email: false,
+            password: false,
+            confirmPassword: false
+        });
+        setErrorText({
+            email: '',
+            password: '',
+            confirmPassword: ''
+        });
+
+        // Basic validation
+        if (!loginEmail.trim()) {
+            setInputError(prev => ({ ...prev, email: true }));
+            setErrorText(prev => ({ ...prev, email: 'Email is required' }));
+            return;
+        }
+
+        if (!loginPassword.trim()) {
+            setInputError(prev => ({ ...prev, password: true }));
+            setErrorText(prev => ({ ...prev, password: 'Password is required' }));
+            return;
+        }
+
+        if (!isLoginMode) {
+            // Registration mode validation
+            if (loginPassword !== confirmPassword) {
+                setInputError(prev => ({ ...prev, confirmPassword: true }));
+                setErrorText(prev => ({ ...prev, confirmPassword: 'Passwords do not match' }));
+                return;
+            }
+
+            if (loginPassword.length < 8) {
+                setInputError(prev => ({ ...prev, password: true }));
+                setErrorText(prev => ({ ...prev, password: 'Password must be at least 6 characters' }));
+                return;
+            }
+
+            const userId = uuidv4();
+            await addUser({
+                id: userId,
+                email: loginEmail,
+                password: loginPassword,
+                name: loginEmail.split('@')[0],
+                role: UserRole.STUDENT,
+                paperIds: []
+            });
+
+            localStorage.setItem('userId', userId);
+            await loadUserData(userId);
+        } else {
+            // Login mode validation
+            const userData = await getUserByEmail(loginEmail);
+            if (!userData) {
+                setInputError({
+                    email: true,
+                    password: false,
+                    confirmPassword: false
+                });
+                setErrorText({
+                    email: 'Email not found',
+                    password: '',
+                    confirmPassword: ''
+                });
+                return;
+            }
+
+            if (userData.password !== loginPassword) {
+                setInputError({
+                    email: false,
+                    password: true,
+                    confirmPassword: false
+                });
+                setErrorText({
+                    email: '',
+                    password: 'Password is incorrect',
+                    confirmPassword: ''
+                });
+                return;
+            }
+
+            localStorage.setItem('userId', userData.id);
+            await loadUserData(userData.id);
+        }
+
+        handleDialogClose();
+    }
+
+    const handleDialogClose = () => {
+        setLoginDialogOpen(false);
+        // Reset form and mode
+        setIsLoginMode(true);
+        setLoginEmail('');
+        setLoginPassword('');
+        setConfirmPassword('');
+        setInputError({
+            email: false,
+            password: false,
+            confirmPassword: false
+        });
+        setErrorText({
+            email: '',
+            password: '',
+            confirmPassword: ''
+        });
+    }
+
+    const handleLogout = () => {
+        localStorage.removeItem('userId');
+        setUserData(undefined);
+        setUserMenuAnchor(null);
+    };
+
+    const handleEditProfile = () => {
+        setEditedUserName(userData?.name || '');
+        setEditProfileDialogOpen(true);
+        setUserMenuAnchor(null);
+    };
+
+    const handleSaveProfile = async () => {
+        if (!userData || !editedUserName.trim()) return;
+        
+        try {
+            const updatedUserData = {
+                ...userData,
+                name: editedUserName.trim()
+            };
+            
+            await updateUser(updatedUserData);
+            await loadUserData(userData.id);
+            setEditProfileDialogOpen(false);
+        } catch (error) {
+            console.error('Error updating profile:', error);
+            alert('Failed to update profile. Please try again.');
+        }
+    };
+
+    const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+        setUserMenuAnchor(event.currentTarget);
+    };
+
+    const handleUserMenuClose = () => {
+        setUserMenuAnchor(null);
+    };
+
     return (
-        <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Box className="papers-hub-container">
             {/* Header */}
             <Box sx={{ mb: 4 }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-                    <Typography variant="h4" component="h1" fontWeight="bold">
-                        Papers Hub
-                    </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <img height={40} src="/re-ad-icon.svg" alt="re:ad" />
+                        <Typography variant="h4" component="h1" fontWeight="bold">
+                            Papers Hub
+                        </Typography>
+                    </Box>
+
+                    {userData ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Avatar sx={{ bgcolor: 'grey.200' }}>
+                                <PersonIcon />
+                            </Avatar>
+                            <Typography variant="body1" color="text.secondary">
+                                {userData.name}
+                            </Typography>
+                            <IconButton 
+                                size="small" 
+                                onClick={handleUserMenuOpen}
+                                sx={{ ml: 1 }}
+                            >
+                                <MoreVertIcon />
+                            </IconButton>
+                            
+                            <Menu
+                                anchorEl={userMenuAnchor}
+                                open={Boolean(userMenuAnchor)}
+                                onClose={handleUserMenuClose}
+                                anchorOrigin={{
+                                    vertical: 'bottom',
+                                    horizontal: 'right',
+                                }}
+                                transformOrigin={{
+                                    vertical: 'top',
+                                    horizontal: 'right',
+                                }}
+                            >
+                                <MenuItem onClick={handleEditProfile}>
+                                    <ListItemIcon>
+                                        <EditIcon fontSize="small" />
+                                    </ListItemIcon>
+                                    <ListItemText>Edit Profile</ListItemText>
+                                </MenuItem>
+                                <MenuItem onClick={handleLogout}>
+                                    <ListItemIcon>
+                                        <LogoutIcon fontSize="small" />
+                                    </ListItemIcon>
+                                    <ListItemText>Logout</ListItemText>
+                                </MenuItem>
+                            </Menu>
+                        </Box>
+                    ) : (
+                        <Button variant="contained" onClick={() => setLoginDialogOpen(true)}>
+                            Login / Register
+                        </Button>
+                    )}
+                </Box>
+
+                <Divider sx={{ borderColor: 'black' }} />
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 5 }}>
+                    <TextField
+                        placeholder="Search papers..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        InputProps={{
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <SearchIcon />
+                                </InputAdornment>
+                            ),
+                        }}
+                        sx={{ maxWidth: 400 }}
+                        size="small"
+                        fullWidth
+                    />
                     <Button
                         variant="contained"
                         startIcon={<AddIcon />}
@@ -164,23 +414,7 @@ export const PapersHub = () => {
                     >
                         Add Paper
                     </Button>
-                </Stack>
-
-                <TextField
-                    placeholder="Search papers..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    InputProps={{
-                        startAdornment: (
-                            <InputAdornment position="start">
-                                <SearchIcon />
-                            </InputAdornment>
-                        ),
-                    }}
-                    sx={{ maxWidth: 400 }}
-                    size="small"
-                    fullWidth
-                />
+                </Box>
             </Box>
 
             {/* Results count */}
@@ -260,10 +494,64 @@ export const PapersHub = () => {
                 </Box>
             )}
 
+            {/* Login/Register Dialog */}
+            <Dialog open={loginDialogOpen} onClose={handleDialogClose}>
+                <DialogTitle>{isLoginMode ? 'Login' : 'Register'}</DialogTitle>
+                <DialogContent>
+                    <Stack spacing={2} sx={{ mt: 1 }}>
+                        <TextField
+                            required
+                            error={inputError.email}
+                            helperText={errorText.email}
+                            label="Email"
+                            type="email"
+                            fullWidth
+                            value={loginEmail}
+                            onChange={(e) => setLoginEmail(e.target.value)}
+                        />
+                        <TextField
+                            required
+                            error={inputError.password}
+                            helperText={errorText.password}
+                            label="Password"
+                            type="password"
+                            fullWidth
+                            value={loginPassword}
+                            onChange={(e) => setLoginPassword(e.target.value)}
+                        />
+                        {!isLoginMode && (
+                            <TextField
+                                required
+                                error={inputError.confirmPassword}
+                                helperText={errorText.confirmPassword}
+                                label="Confirm Password"
+                                type="password"
+                                fullWidth
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                            />
+                        )}
+                        <Button
+                            variant="text"
+                            onClick={() => setIsLoginMode(!isLoginMode)}
+                            sx={{ alignSelf: 'flex-start', textTransform: 'none' }}
+                        >
+                            {isLoginMode ? "Don't have an account? Register" : "Already have an account? Login"}
+                        </Button>
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleDialogClose}>Cancel</Button>
+                    <Button onClick={validateAuth} variant="contained">
+                        {isLoginMode ? 'Login' : 'Register'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
             {/* Add/Edit Paper Dialog */}
             <Dialog
-                open={dialogOpen}
-                onClose={() => setDialogOpen(false)}
+                open={addPaperDialogOpen}
+                onClose={() => setAddPaperDialogOpen(false)}
                 maxWidth="sm"
                 fullWidth
             >
@@ -304,7 +592,7 @@ export const PapersHub = () => {
                     </Stack>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 3 }}>
-                    <Button onClick={() => setDialogOpen(false)}>
+                    <Button onClick={() => setAddPaperDialogOpen(false)}>
                         Cancel
                     </Button>
                     <Button
@@ -315,6 +603,44 @@ export const PapersHub = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
-        </Container>
+
+            {/* Edit Profile Dialog */}
+            <Dialog open={editProfileDialogOpen} onClose={() => setEditProfileDialogOpen(false)}>
+                <DialogTitle>Edit Profile</DialogTitle>
+                <DialogContent>
+                    <Stack spacing={2} sx={{ mt: 1, minWidth: 300 }}>
+                        <TextField
+                            label="Name"
+                            value={editedUserName}
+                            onChange={(e) => setEditedUserName(e.target.value)}
+                            fullWidth
+                            autoFocus
+                        />
+                        <TextField
+                            label="Email"
+                            value={userData?.email || ''}
+                            disabled
+                            fullWidth
+                            helperText="Email cannot be changed"
+                        />
+                        <TextField
+                            label="Role"
+                            value={userData?.role || ''}
+                            disabled
+                            fullWidth
+                            helperText="Role is assigned by administrators"
+                        />
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setEditProfileDialogOpen(false)}>
+                        Cancel
+                    </Button>
+                    <Button onClick={handleSaveProfile} variant="contained">
+                        Save Changes
+                    </Button>
+                </DialogActions>
+            </Dialog>
+        </Box>
     );
 };

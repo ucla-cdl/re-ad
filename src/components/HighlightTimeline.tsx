@@ -1,15 +1,12 @@
 import React, { useEffect } from 'react';
 import { usePaperContext } from '../contexts/PaperContext';
-import { Box, Typography, IconButton, Button } from '@mui/material';
-import { CloudDownload, CloudUpload } from "@mui/icons-material";
-import Tooltip from '@mui/material/Tooltip';
+import { Box, Typography, Button } from '@mui/material';
 import * as d3 from "d3";
-import { exportGraph, importGraph } from '../utils/graphIO';
 import { useReadingAnalyticsContext } from '../contexts/ReadingAnalyticsContext';
 
 export const HighlightTimeline: React.FC = () => {
     // TODO: move the import export to the context file
-    const { pdfViewer, highlights, readRecords, nodes, edges, setHighlights, setNodes, setEdges, setReadRecords, paperUrl } = usePaperContext();
+    const { pdfViewer, highlights, readRecords } = usePaperContext();
 
     const { readingSessions, saveReadingState } = useReadingAnalyticsContext();
 
@@ -125,30 +122,6 @@ export const HighlightTimeline: React.FC = () => {
         });
     }
 
-    const handleExportGraph = () => {
-        exportGraph({
-            highlights,
-            nodes,
-            edges,
-            readRecords,
-            pdfUrl: paperUrl
-        });
-    };
-
-    const handleImportGraph = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file) {
-            importGraph(file, setGraphState);
-        }
-    };
-
-    const setGraphState = (data: any) => {
-        setHighlights(data.highlights || []);
-        setNodes(data.nodes || []);
-        setEdges(data.edges || []);
-        setReadRecords(data.readRecords || {});
-    };
-
     return (
         <Box sx={{ p: 2, width: '100%', height: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
             <Typography variant="h5" sx={{ mb: 2, color: 'text.secondary' }}>
@@ -157,20 +130,7 @@ export const HighlightTimeline: React.FC = () => {
 
             <Box id="highlight-timeline-container" sx={{ width: '100%', height: '60%' }} />
 
-            <Button onClick={saveReadingState}>Save Reading State</Button>  
-            <Box sx={{ mx: 2, display: 'flex', gap: 1 }}>
-                <Tooltip title="Export Graph">
-                    <IconButton onClick={handleExportGraph}>
-                        <CloudDownload />
-                    </IconButton>
-                </Tooltip>
-                <Tooltip title="Import Graph">
-                    <IconButton component="label">
-                        <CloudUpload />
-                        <input type="file" accept="application/json" hidden onChange={handleImportGraph} />
-                    </IconButton>
-                </Tooltip>
-            </Box>
+            <Button onClick={saveReadingState}>Save Reading State</Button>
         </Box>
     );
 }; 

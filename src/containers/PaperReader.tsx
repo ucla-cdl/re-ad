@@ -36,7 +36,7 @@ export const PaperReader = () => {
   const fetchPaperFile = async () => {
     const state = location.state as { paperId?: string };
     if (state?.paperId) {
-      setPaperId(state.paperId);  
+      setPaperId(state.paperId);
       const fileUrl = await getPaperFile(state.paperId);
       setPaperUrl(fileUrl);
     }

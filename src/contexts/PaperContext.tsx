@@ -88,8 +88,8 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   }
   const { setRunTour } = tourContext;
 
-  const { userId, getReadingStateData } = useStorageContext();
-  
+  const { userData, getReadingStateData } = useStorageContext();
+
   // Paper
   const [paperId, setPaperId] = useState<string | null>(null);
   const [paperUrl, setPaperUrl] = useState<string | null>(null);
@@ -114,20 +114,42 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   const NODE_OFFSET_Y = 150;
 
   useEffect(() => {
-    loadReadingState();
-  }, [userId, paperId]);
+    loadPaperContext();
+  }, [userData, paperId]);
 
-  const loadReadingState = async () => {
-    if (userId && paperId) {
-      const readingStateData = await getReadingStateData(userId, paperId);
-      if (!readingStateData) return;
+  const resetControlStates = () => {
+    setCurrentReadId("");
+    setCurrentSessionId("");
+    setSelectedHighlightId(null);
+    setDisplayEdgeTypes([EDGE_TYPES.CHRONOLOGICAL, EDGE_TYPES.RELATIONAL]);
+  };
 
-      setHighlights(readingStateData.state.highlights);
-      setReadRecords(readingStateData.state.readRecords);
-      setNodes(readingStateData.state.nodes);
-      setEdges(readingStateData.state.edges);
+  const resetPaperContext = () => {
+    setHighlights([]);
+    setReadRecords({});
+    setNodes([]);
+    setEdges([]);
+    setDisplayedReads([]);
+    resetControlStates();
+  };
 
-      setDisplayedReads(Object.keys(readingStateData.state.readRecords));
+  const loadPaperContext = async () => {
+    if (userData && paperId) {
+      console.log("load paper context", userData, paperId);
+      const readingStateData = await getReadingStateData(userData.id, paperId);
+
+      if (readingStateData) {
+        // Load stored data
+        setHighlights(readingStateData.state.highlights);
+        setReadRecords(readingStateData.state.readRecords);
+        setNodes(readingStateData.state.nodes);
+        setEdges(readingStateData.state.edges);
+        setDisplayedReads(Object.keys(readingStateData.state.readRecords));
+        resetControlStates();
+      } else {
+        // No reading state data exists - start with fresh state
+        resetPaperContext();
+      }
     }
   }
 
@@ -144,11 +166,11 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
 
   const onConnect = useCallback((connection: Connection) => {
     console.log("Connect", connection);
-    const edge = { 
-      ...connection, 
+    const edge = {
+      ...connection,
       sourceHandle: `relational-handle-${connection.source}-source`,
       targetHandle: `relational-handle-${connection.target}-target`,
-      type: EDGE_TYPES.RELATIONAL, 
+      type: EDGE_TYPES.RELATIONAL,
       markerEnd: { type: MarkerType.Arrow },
       hidden: !displayEdgeTypes.includes(EDGE_TYPES.RELATIONAL)
     };
@@ -415,6 +437,6 @@ export const usePaperContext = () => {
   if (context === undefined) {
     throw new Error('usePaperContext must be used within a PaperContextProvider');
   }
-  
+
   return context;
 };

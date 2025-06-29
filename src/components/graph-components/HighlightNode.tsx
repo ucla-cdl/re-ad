@@ -14,7 +14,7 @@ export default function HighlightNode({ data }: NodeProps<Node>) {
     intersected: boolean;
   };
   const { readRecords, displayedReads, selectedHighlightId } = usePaperContext();
-  const { color } = readRecords[readRecordId];
+  const { color } = readRecords[readRecordId] || { color: "#e6e6e6" };
   const isDisplayed = displayedReads.includes(readRecordId);
 
   const connection = useConnection();
