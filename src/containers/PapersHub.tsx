@@ -96,7 +96,11 @@ export const PapersHub = () => {
 
     const loadPapers = async () => {
         try {
-            if (!userData) return;
+            if (!userData) {
+                setPapers([]);
+                return;
+            }
+            
             setLoading(true);
             const paperData = await getAllPapersData();
             setPapers(paperData.filter(paper => userData.paperIds.includes(paper.id)));
@@ -152,8 +156,8 @@ export const PapersHub = () => {
             // Add paper to user
             await addPaperToUser(userData.id, paperId);
 
-            // Refresh papers list
-            await loadPapers();
+            // Refresh user data to load the new paper
+            await loadUserData(userData.id);
 
             // Close dialog
             setAddPaperDialogOpen(false);

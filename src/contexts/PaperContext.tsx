@@ -18,7 +18,7 @@ import { PDFViewer } from "pdfjs-dist/types/web/pdf_viewer";
 import { v4 as uuidv4 } from 'uuid';
 import { useStorageContext } from "./StorageContext";
 import { GoogleGenAI, Type } from "@google/genai";
-import { READING_GOAL_GENERATE_PROMPT, READING_GOAL_SYSTEM_PROMPT } from "../utils/prompts";
+import { READING_GOAL_GENERATE_PROMPT, READING_SUGGESTION_SYSTEM_PROMPT } from "../utils/prompts";
 
 type PaperContextData = {
   // Paper
@@ -26,7 +26,7 @@ type PaperContextData = {
   setPaperId: (paperId: string | null) => void;
   paperUrl: string | null;
   setPaperUrl: (paperUrl: string | null) => void;
-  generateReadingGoals: () => Promise<ReadingGoal[]>;
+  generateReadingGoals: () => Promise<ReadingSuggestion>;
   highlights: Array<ReadHighlight>;
   addHighlight: (highlight: GhostHighlight) => void;
   updateNodeData: (nodeId: string, data: Partial<NodeData>) => void;
@@ -72,6 +72,11 @@ export type ReadRecord = {
   color: string;
   description?: string;
 };
+
+export type ReadingSuggestion = {
+  readingProgress: string;
+  readingGoals: ReadingGoal[];
+}
 
 export type ReadingGoal = {
   goalName: string;
@@ -177,7 +182,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   }, [displayEdgeTypes]);
 
   const generateReadingGoals = async () => {
-    if (!pdfViewerRef.current) return [] as ReadingGoal[];
+    if (!pdfViewerRef.current) return {} as ReadingSuggestion;
 
     const paperContent = await pdfViewerRef.current.getAllText();
 
@@ -187,10 +192,10 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     const response = await query_gemini(prompt);
 
     if (response) {
-      return JSON.parse(response) as ReadingGoal[];
+      return JSON.parse(response) as ReadingSuggestion;
     }
 
-    return [] as ReadingGoal[];
+    return {} as ReadingSuggestion;
   }
 
   const processHighlightText = (highlight: GhostHighlight) => {
@@ -416,20 +421,28 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
       contents:
         prompt + (data ? "\n" + data : ""),
       config: {
-        systemInstruction: READING_GOAL_SYSTEM_PROMPT,
+        systemInstruction: READING_SUGGESTION_SYSTEM_PROMPT,
         responseMimeType: "application/json",
         responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              goalName: {
-                type: Type.STRING,
+          type: Type.OBJECT,
+          properties: {
+            readingProgress: {
+              type: Type.STRING,
+            },
+            readingGoals: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  goalName: {
+                    type: Type.STRING,
+                  },
+                  goalDescription: {
+                    type: Type.STRING,
+                  },
+                },
               },
-              goalDescription: {
-                type: Type.STRING,
-              },
-            }
+            },
           },
         },
       },

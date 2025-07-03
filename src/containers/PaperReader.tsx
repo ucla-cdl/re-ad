@@ -11,10 +11,11 @@ import Joyride, { ACTIONS, CallBackProps, EVENTS, STATUS } from "react-joyride";
 import { TourContext } from "../contexts/TourContext";
 import { useLocation } from "react-router-dom";
 import Split from 'react-split';
-import { useStorageContext } from "../contexts/StorageContext";
+import { UserRole, useStorageContext } from "../contexts/StorageContext";
+import { MultiAnalysisPanel } from "../components/MultiAnalysisPanel";
 
 export const PaperReader = () => {
-  const { getPaperFile } = useStorageContext();
+  const { userData, getPaperFile } = useStorageContext();
   const { setPaperUrl, setPaperId } = usePaperContext();
   const location = useLocation();
 
@@ -25,6 +26,13 @@ export const PaperReader = () => {
   const { setRunTour, runTour, steps, stepIndex, setStepIndex } = tourContext;
 
   const [viewType, setViewType] = useState<'graph' | 'analytics' | 'timeline'>('graph');
+
+  // When leaving the page, setPaperId to null
+  useEffect(() => {
+    return () => {
+      setPaperId(null);
+    }
+  }, []);
 
   // Handle paper URL from navigation state
   useEffect(() => {
@@ -92,7 +100,8 @@ export const PaperReader = () => {
           <Box className="panel graph-panel">
             {viewType === 'graph' && <GraphPanel />}
             {viewType === 'analytics' && <ReadingAnalyticsPanel />}
-            {viewType === 'timeline' && <HighlightTimeline />}
+            {viewType === 'timeline' && userData?.role === UserRole.STUDENT && <HighlightTimeline />}
+            {viewType === 'timeline' && userData?.role === UserRole.TEACHER && <MultiAnalysisPanel />}
           </Box>
         </Split>
       </Box>

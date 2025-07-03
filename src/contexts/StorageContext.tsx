@@ -51,7 +51,7 @@ type StorageContextData = {
     userData: UserData | undefined;
     setUserData: (userData: UserData | undefined) => void;
     loadUserData: (userId: string) => Promise<void>;
-    getAllUsers: () => Promise<UserData[]>;
+    getAllUsers: (role?: UserRole) => Promise<UserData[]>;
     getUserById: (id: string) => Promise<UserData | null>;
     getUserByEmail: (email: string) => Promise<UserData | null>;
     addUser: (userData: UserData) => Promise<void>;
@@ -63,6 +63,7 @@ type StorageContextData = {
     getPaperFile: (paperId: string) => Promise<string>;
     addPaperFile: (paperId: string, file: File) => Promise<void>;
     getReadingStateData: (userId: string, paperId: string) => Promise<ReadingState | null>;
+    getMultipleReadingStateData: (userIds: string[], paperId: string) => Promise<(ReadingState)[]>;
     updateReadingState: (readingStateData: ReadingState) => Promise<void>;
 }
 
@@ -101,8 +102,15 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
         setUserData(userData);
     }
 
-    const getAllUsers = async () => {
-        const userDocs = await getDocs(usersCollectionRef);
+    const getAllUsers = async (role?: UserRole) => {
+        let userDocs;
+        if (role) {
+            const q = query(usersCollectionRef, where('role', '==', role));
+            userDocs = await getDocs(q);
+        }
+        else {
+            userDocs = await getDocs(usersCollectionRef);
+        }
         console.log("userDocs", userDocs.docs.map((doc) => doc.data()));
         return userDocs.docs.map((doc) => doc.data() as UserData);
     }
@@ -209,13 +217,27 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
         const readingStateDoc = await getDoc(readingStateRef);
         const data = readingStateDoc.data();
         if (!data) return null;
-        const readingStateData = {
+
+        return {
             ...data,
             state: JSON.parse(data?.state)
         } as ReadingState;
+    }
 
-        console.log("readingStateData", readingStateData);
-        return readingStateData;
+    const getMultipleReadingStateData = async (userIds: string[], paperId: string) => {
+        const q = query(readingStatesCollectionRef, where('userId', 'in', userIds), where('paperId', '==', paperId));
+        const readingStateDocs = await getDocs(q);
+        const readingStateData = readingStateDocs.docs.map((doc) => {
+            const data = doc.data();
+            if (!data) return null;
+
+            return {
+                ...data,
+                state: JSON.parse(data?.state)
+            } as ReadingState;
+        });
+
+        return readingStateData.filter((data) => data !== null);
     }
 
     // add/update reading state data
@@ -249,6 +271,7 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
                 getPaperFile,
                 addPaperFile,
                 getReadingStateData,
+                getMultipleReadingStateData,
                 updateReadingState,
             }}
         >

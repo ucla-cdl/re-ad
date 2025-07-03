@@ -16,8 +16,7 @@ import {
   TextField,
   Tooltip,
   Chip,
-  Typography,
-  Icon
+  Typography
 } from "@mui/material";
 import { FormControlLabel } from "@mui/material";
 import { Add, Analytics, Close, Timeline as TimelineIcon, TipsAndUpdates } from "@mui/icons-material";
@@ -50,19 +49,21 @@ export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProp
     throw new Error("TourContext not found");
   }
   const { setRunTour } = tourContext;
-  const [title, setTitle] = useState<string | null>("");
+  const [title, setTitle] = useState<string>("");
   const [color, setColor] = useState<string | null>(null);
   const [isAddingNewRead, setIsAddingNewRead] = useState(false);
-  const [isGeneratingReadingGoals, setIsGeneratingReadingGoals] = useState(false);
+  const [isGeneratingReadingSuggestions, setIsGeneratingReadingSuggestions] = useState(false);
+  const [readingProgress, setReadingProgress] = useState<string>("");
   const [readingGoals, setReadingGoals] = useState<ReadingGoal[]>([]);
   const [openColorPicker, setOpenColorPicker] = useState(false);
 
   const handleCreatingNewRead = async () => {
     setIsAddingNewRead(true);
-    setIsGeneratingReadingGoals(true);
-    const readingGoals = await generateReadingGoals();
-    setReadingGoals(readingGoals);
-    setIsGeneratingReadingGoals(false);
+    setIsGeneratingReadingSuggestions(true);
+    const readingSuggestion = await generateReadingGoals();
+    setReadingProgress(readingSuggestion.readingProgress);
+    setReadingGoals(readingSuggestion.readingGoals);
+    setIsGeneratingReadingSuggestions(false);
   }
 
   const handleCreateRead = () => {
@@ -208,7 +209,7 @@ export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProp
             sx={{ my: 1 }}
           />
 
-          {isGeneratingReadingGoals ? (
+          {isGeneratingReadingSuggestions ? (
             <Box sx={{ my: 2, display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
               <p style={{
                 animation: "pulse 1.5s ease-in-out infinite",
@@ -228,14 +229,20 @@ export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProp
               </style>
             </Box>
           ) : (
-            <Box sx={{ my: 2, display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%", gap: 1 }}>
-              <Typography variant="body1" sx={{ fontWeight: "bold" }}>Suggested Reading Goals:</Typography>
-              <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
-                {readingGoals.map((goal) => (
-                  <Tooltip title={goal.goalDescription} key={goal.goalName}>
-                    <Chip label={goal.goalName} variant="outlined" onClick={() => setTitle(goal.goalName)} />
-                  </Tooltip>
-                ))}
+            <Box sx={{ my: 2, display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%", gap: 2 }}>
+              <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%", gap: 1 }}>
+                <Typography variant="body1" sx={{ fontWeight: "bold" }}>Reading Progress:</Typography>
+                <Typography variant="body1">{readingProgress}</Typography>
+              </Box>
+              <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%", gap: 1 }}>
+                <Typography variant="body1" sx={{ fontWeight: "bold" }}>Suggested Reading Goals:</Typography>
+                <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
+                  {readingGoals.map((goal) => (
+                    <Tooltip title={goal.goalDescription} key={goal.goalName}>
+                      <Chip label={goal.goalName} variant="outlined" onClick={() => setTitle(goal.goalName)} />
+                    </Tooltip>
+                  ))}
+                </Box>
               </Box>
             </Box>
           )}

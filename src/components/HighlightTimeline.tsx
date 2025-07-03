@@ -5,7 +5,6 @@ import * as d3 from "d3";
 import { useReadingAnalyticsContext } from '../contexts/ReadingAnalyticsContext';
 
 export const HighlightTimeline: React.FC = () => {
-    // TODO: move the import export to the context file
     const { pdfViewerRef, highlights, readRecords } = usePaperContext();
 
     const { readingSessions, saveReadingState } = useReadingAnalyticsContext();
@@ -51,9 +50,6 @@ export const HighlightTimeline: React.FC = () => {
             .attr("width", chartWidth)
             .attr("height", chartHeight);
 
-        const sessions = Object.values(readingSessions).sort((a, b) => a.startTime - b.startTime);
-        const totalDuration = sessions.reduce((acc, session) => acc + session.duration, 0);
-
         if (!pdfViewerRef.current) {
             return;
         }
@@ -62,6 +58,9 @@ export const HighlightTimeline: React.FC = () => {
         const pdfPageHeight = pdfViewerRef.current.getPageView(0).height;
         const pdfTotalHeight = pdfViewerRef.current.pagesCount * pdfPageHeight;
 
+        const sessions = Object.values(readingSessions).sort((a, b) => a.startTime - b.startTime);
+        const totalDuration = sessions.reduce((acc, session) => acc + session.duration, 0);
+        
         const xScale = d3.scaleLinear()
             .domain([0, totalDuration])
             .range([0, chartWidth]);
