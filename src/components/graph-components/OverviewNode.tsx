@@ -5,13 +5,13 @@ import { usePaperContext } from "../../contexts/PaperContext";
 
 export default function OverviewNode({ data }: NodeProps<Node>) {
     const { id, readRecordId, label, content, type, notes } = data as { id: string, readRecordId: string, label: string, content: string, type: string, notes: string };
-    const { readRecords, displayedReads, selectedHighlightId } = usePaperContext();
+    const { readRecords, displayedReads, selectedHighlightIds } = usePaperContext();
     const { color } = readRecords[readRecordId];
     const isDisplayed = displayedReads.includes(readRecordId);
 
     return (
         <Box
-            className={`overview-node ${id === selectedHighlightId ? "selected" : ""}`}
+            className={`overview-node ${selectedHighlightIds.includes(id) ? "selected" : ""}`}
             id={`node-${id}`}
             sx={{ backgroundColor: isDisplayed ? color : "#e6e6e6" }}
         >

@@ -16,13 +16,13 @@ export interface ReadHighlight extends Highlight {
 interface HighlightContainerProps {
     readRecords: any;
     displayedReads: Array<string>;
-    setSelectedHighlightId: (id: string | null) => void;
+    setSelectedHighlightIds: (ids: Array<string>) => void;
 }
 
 function HighlightContainer({
     readRecords,
     displayedReads,
-    setSelectedHighlightId,
+    setSelectedHighlightIds,
 }: HighlightContainerProps) {
     const {
         highlight,
@@ -41,7 +41,7 @@ function HighlightContainer({
                 style={{
                     background: color,
                 }}
-                onClick={() => setSelectedHighlightId(highlight.id)}
+                onClick={() => setSelectedHighlightIds([highlight.id])}
             />
             :
             <AreaHighlight

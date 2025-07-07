@@ -17,7 +17,7 @@ export type NodeData = {
 
 
 function NodeEditor() {
-  const { nodes, updateNodeData, deleteHighlight, selectedHighlightId, setSelectedHighlightId, setOnSelectNode, query_gemini } = usePaperContext();
+  const { nodes, updateNodeData, deleteHighlight, selectedHighlightIds, setSelectedHighlightIds, setOnSelectNode, query_gemini } = usePaperContext();
 
   const [label, setLabel] = useState<string>("");
   const [summary, setSummary] = useState<string>("");
@@ -30,7 +30,8 @@ function NodeEditor() {
 
   // Fetch node data from the nodes array when the selected highlight changes
   useEffect(() => {
-    const selectedNode = nodes.find((node) => node.id === selectedHighlightId);
+    const primaryHighlightId = selectedHighlightIds[0];
+    const selectedNode = nodes.find((node) => node.id === primaryHighlightId);
     if (selectedNode) {
       setLabel(selectedNode.data.label as string);
       const content = selectedNode.data.content as string;
@@ -45,7 +46,7 @@ function NodeEditor() {
         generateSummary(content, type);
       }
     }
-  }, [selectedHighlightId]);
+  }, [selectedHighlightIds]);
 
   // Generate summary from highlighted content
   const generateSummary = async (content: string, type: string) => {
@@ -82,15 +83,16 @@ function NodeEditor() {
   };
 
   const handleSave = () => {
-    updateNodeData(selectedHighlightId as string, { label, summary, notes });
-    setSelectedHighlightId(null);
+    const primaryHighlightId = selectedHighlightIds[0];
+    updateNodeData(primaryHighlightId, { label, summary, notes });
+    setSelectedHighlightIds([]);
     setOnSelectNode(false);
   };
 
   const handleClose = () => {
     setClosing(true);
     if (!edited) {
-      setSelectedHighlightId(null);
+      setSelectedHighlightIds([]);
       setOnSelectNode(false);
     }
   };
@@ -161,7 +163,11 @@ function NodeEditor() {
         <Button variant="outlined" color="success" onClick={() => handleSave()}>
           Save
         </Button>
-        <Button variant="outlined" color="error" onClick={() => deleteHighlight(selectedHighlightId as string)}>
+        <Button variant="outlined" color="error" onClick={() => {
+          const primaryHighlightId = selectedHighlightIds[0];
+          deleteHighlight(primaryHighlightId);
+          setSelectedHighlightIds([]);
+        }}>
           Delete
         </Button>
       </Box>

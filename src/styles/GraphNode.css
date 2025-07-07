@@ -9,7 +9,9 @@
     font-weight: bold;
     position: relative;
     box-sizing: border-box;
-    padding-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
 }
 
 .highlight-node.selected {
@@ -17,9 +19,9 @@
     box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.5);
 }
 
-.highlight-node.intersected {
-    border: 2px solid black;
-    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.5);
+.highlight-node.selected:not(:only-child) {
+    border: 2px solid #007acc;
+    box-shadow: 0 0 10px 0 rgba(0, 122, 204, 0.6);
 }
 
 .overview-node {
@@ -37,15 +39,35 @@
     box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.5);
 }
 
-.group-node {
-    max-width: 150px;
+.overview-node.selected:not(:only-child) {
+    border: 2px solid #007acc;
+    box-shadow: 0 0 10px 0 rgba(0, 122, 204, 0.6);
+}
+
+.theme-node {
+    max-width: 300px;
     background-color: lightgray;
-    padding: 5px;
-    border-radius: 5px;
+    padding: 15px;
+    border-radius: 15px;
     border: 1px solid black;
     color: black;
     text-transform: none !important;
     font-weight: bold;
+    position: relative;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.theme-node.selected {
+    border: 2px solid black;
+    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.5);
+}
+
+.theme-node.selected:not(:only-child) {
+    border: 2px solid #007acc;
+    box-shadow: 0 0 10px 0 rgba(0, 122, 204, 0.6);
 }
 
 .connection-handle {
@@ -62,12 +84,9 @@
 }
 
 .drag-handle__custom {
-    display: inline-block;
+    margin: 0 auto;
     width: 24px;
-    height: 24px;
+    height: 40px;
     cursor: grab;
-    position: absolute;
-    bottom: 0;
-    left: 50%;
-    transform: translate(-50%, 0) rotate(90deg);
+    transform: rotate(90deg);
 }

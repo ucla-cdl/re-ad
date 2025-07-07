@@ -44,7 +44,7 @@ type PaperContextData = {
   onConnect: (connection: Connection) => void;
   onSelectNode: boolean;
   setOnSelectNode: (onSelectNode: boolean) => void;
-  createGroupNode: (nodeIds: string[]) => void;
+  createGroupNode: (nodeIds: string[], label?: string) => void;
   displayEdgeTypes: Array<string>;
   setDisplayEdgeTypes: (displayEdgeTypes: Array<string>) => void;
   // Shared
@@ -58,8 +58,8 @@ type PaperContextData = {
   displayedReads: Array<string>;
   hideRead: (readId: string) => void;
   showRead: (readId: string) => void;
-  selectedHighlightId: string | null;
-  setSelectedHighlightId: (highlightId: string | null) => void;
+  selectedHighlightIds: Array<string>;
+  setSelectedHighlightIds: (highlightIds: Array<string>) => void;
   // LLM
   query_gemini: (prompt: string, data: any) => Promise<string>;
 };
@@ -86,7 +86,7 @@ export type ReadingGoal = {
 export const NODE_TYPES = {
   HIGHLIGHT: "highlight",
   OVERVIEW: "overview",
-  GROUP: "group",
+  THEME: "theme",
 }
 
 export const EDGE_TYPES = {
@@ -116,7 +116,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   const [readRecords, setReadRecords] = useState<Record<string, ReadRecord>>({});
   const [currentReadId, setCurrentReadId] = useState("");
   const [currentSessionId, setCurrentSessionId] = useState("");
-  const [selectedHighlightId, setSelectedHighlightId] = useState<string | null>(null);
+  const [selectedHighlightIds, setSelectedHighlightIds] = useState<Array<string>>([]);
   const [displayedReads, setDisplayedReads] = useState<Array<string>>([]);
 
   // Graph
@@ -137,7 +137,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   const resetControlStates = () => {
     setCurrentReadId("");
     setCurrentSessionId("");
-    setSelectedHighlightId(null);
+    setSelectedHighlightIds([]);
     setDisplayEdgeTypes([EDGE_TYPES.CHRONOLOGICAL, EDGE_TYPES.RELATIONAL]);
   };
 
@@ -218,7 +218,6 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   };
 
   const addHighlight = (highlight: GhostHighlight) => {
-    console.log("Add highlight", highlight, highlights);
     const id = `${currentReadId}-${chronologicalSeq}`;
 
     setHighlights((prevHighlights: Array<ReadHighlight>) => [
@@ -279,7 +278,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
       ]);
     }
 
-    setSelectedHighlightId(id);
+    // setSelectedHighlightIds([id]);
     setChronologicalSeq((prevChronologicalSeq) => prevChronologicalSeq + 1);
   };
 
@@ -296,7 +295,6 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   };
 
   const onConnect = useCallback((connection: Connection) => {
-    console.log("Connect", connection);
     const edge = {
       ...connection,
       sourceHandle: `relational-handle-${connection.source}-source`,
@@ -308,67 +306,74 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     setEdges((prevEdges) => addEdge(edge, prevEdges));
   }, []);
 
-  const createGroupNode = (nodeIds: string[]) => {
-    if (nodeIds.length === 0) return;
+  const createGroupNode = (childNodeIds: string[], label?: string) => {
+    if (childNodeIds.length < 2) return; // Need at least 2 nodes to create a group
 
     // Create a new group node
-    const id = `${currentReadId}-${chronologicalSeq}`;
+    let graphNodes = [...nodes];
+    // const id = `${currentReadId}-${chronologicalSeq}`;
+    const newGroupNodeId = uuidv4();
+    const selectedNodes = nodes.filter(node => childNodeIds.includes(node.id));
+    
     const groupNode = {
-      id: id,
-      type: NODE_TYPES.HIGHLIGHT,
+      id: newGroupNodeId,
+      type: NODE_TYPES.THEME,
       data: {
-        id: id,
+        id: newGroupNodeId,
         readRecordId: currentReadId,
-        label: 'Group',
-        children: nodeIds,
+        label: label || `Group (${childNodeIds.length} nodes)`,
+        // children: nodeIds,
+        summary: "",
+        references: [],
         notes: "",
       },
       position: {
         // Position the group node at the average position of its children
-        x: nodes.filter(node => nodeIds.includes(node.id))
-          .reduce((sum, node) => sum + node.position.x, 0) / nodeIds.length + NODE_OFFSET_X, // Position slightly right
-        y: nodes.filter(node => nodeIds.includes(node.id))
-          .reduce((sum, node) => sum + node.position.y, 0) / nodeIds.length
+        x: selectedNodes.reduce((sum, node) => sum + node.position.x, 0) / selectedNodes.length + NODE_OFFSET_X,
+        y: selectedNodes.reduce((sum, node) => sum + node.position.y, 0) / selectedNodes.length, // Position slightly above
       },
       style: {
         backgroundColor: readRecords[currentReadId].color,
       }
     };
 
-    // Add the group node to the nodes array
-    setNodes(prevNodes => [...prevNodes, groupNode]);
-
-    // add an chronological edge
-    console.log("nodes", nodes);
-    const lastId = nodes[nodes.length - 1].id;
-    setEdges((prevEdges: Array<Edge>) => [
-      ...prevEdges,
-      {
-        id: id,
-        source: lastId,
-        sourceHandle: `chronological-handle-${lastId}-source`,
-        target: id,
-        targetHandle: `chronological-handle-${id}-target`,
-        type: EDGE_TYPES.CHRONOLOGICAL,
-        markerEnd: { type: MarkerType.Arrow },
-        hidden: !displayEdgeTypes.includes(EDGE_TYPES.CHRONOLOGICAL)
-      },
-    ]);
+    // Add chronological edge if there are existing nodes
+    if (graphNodes.length > 0) {
+      const lastId = graphNodes[graphNodes.length - 1].id;
+      setEdges((prevEdges: Array<Edge>) => [
+        ...prevEdges,
+        {
+          id: `chronological-${newGroupNodeId}`,
+          source: lastId,
+          sourceHandle: `chronological-handle-${lastId}-source`,
+          target: newGroupNodeId,
+          targetHandle: `chronological-handle-${newGroupNodeId}-target`,
+          type: EDGE_TYPES.CHRONOLOGICAL,
+          markerEnd: { type: MarkerType.Arrow },
+          hidden: !displayEdgeTypes.includes(EDGE_TYPES.CHRONOLOGICAL)
+        },
+      ]);
+    }
 
     // Create edges from the group node to each child node
-    const newEdges = nodeIds.map(nodeId => ({
-      id: `${id}-${nodeId}`,
-      source: id,
-      sourceHandle: `relational-handle-${id}-source`,
+    const newEdges = childNodeIds.map(nodeId => ({
+      id: `group-${newGroupNodeId}-${nodeId}`,
+      source: newGroupNodeId,
+      sourceHandle: `relational-handle-${newGroupNodeId}-source`,
       target: nodeId,
       targetHandle: `relational-handle-${nodeId}-target`,
       type: EDGE_TYPES.RELATIONAL,
       hidden: !displayEdgeTypes.includes(EDGE_TYPES.RELATIONAL)
     }));
 
+    // Add the group node to the nodes array
+    graphNodes = [...graphNodes, groupNode];
+
+    setNodes(graphNodes);
     setEdges(prevEdges => [...prevEdges, ...newEdges]);
 
-    // update control states
+    // Clear selection and update control states
+    // setSelectedHighlightIds([id]); // Select the newly created group
     setChronologicalSeq((prevChronologicalSeq) => prevChronologicalSeq + 1);
   }
 
@@ -378,7 +383,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     setNodes(nodes.filter((n) => n.id !== highlightId));
     // TODO: connnect prev and next node
     setEdges(edges.filter((e) => e.id !== highlightId && e.source !== highlightId && e.target !== highlightId));
-    setSelectedHighlightId(null);
+    setSelectedHighlightIds([]);
   };
 
   const resetHighlights = () => {
@@ -386,7 +391,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     setHighlights([]);
     setNodes([]);
     setEdges([]);
-    setSelectedHighlightId(null);
+    setSelectedHighlightIds([]);
     setChronologicalSeq(0);
   };
 
@@ -491,8 +496,8 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         setReadRecords,
         hideRead,
         showRead,
-        selectedHighlightId,
-        setSelectedHighlightId,
+        selectedHighlightIds,
+        setSelectedHighlightIds,
         // LLM
         query_gemini,
       }}

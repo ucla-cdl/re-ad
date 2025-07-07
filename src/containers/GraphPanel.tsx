@@ -3,7 +3,6 @@ import Dagre from '@dagrejs/dagre';
 import { useState, useEffect, useCallback } from "react";
 import {
   ReactFlow,
-  type OnNodeDrag,
   Background,
   Controls,
   MiniMap,
@@ -21,12 +20,13 @@ import RelationalEdge from "../components/graph-components/RelationalEdge";
 import { usePaperContext, EDGE_TYPES } from "../contexts/PaperContext";
 import NodeEditor from "../components/node-components/NodeEditor";
 import { CloseFullscreen, OpenInFull } from "@mui/icons-material";
-import GroupNode from "../components/graph-components/GroupNode";
+import ThemeNode from "../components/graph-components/ThemeNode";
+import ContextMenu from "../components/ContextMenu";
 
 const nodeTypes = {
   highlight: HighlightNode,
   overview: OverviewNode,
-  group: GroupNode,
+  theme: ThemeNode,
 };
 
 const edgeTypes = {
@@ -43,8 +43,8 @@ function Flow(props: any) {
     onNodesChange,
     onEdgesChange,
     onConnect,
-    selectedHighlightId,
-    setSelectedHighlightId,
+    selectedHighlightIds,
+    setSelectedHighlightIds,
     onSelectNode,
     setOnSelectNode,
     createGroupNode,
@@ -52,35 +52,45 @@ function Flow(props: any) {
     setDisplayEdgeTypes
   } = props;
 
-  const { fitView, getIntersectingNodes } = useReactFlow();
+  const { fitView } = useReactFlow();
   const [isOverview, setIsOverview] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{
+    open: boolean;
+    anchorPosition: { top: number; left: number } | undefined;
+  }>({ open: false, anchorPosition: undefined });
 
-  const onNodeDrag: OnNodeDrag = useCallback((_, node) => {
-    const intersections = getIntersectingNodes(node).map((n) => n.id);
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setSelectedHighlightIds([]);
+      }
+    };
 
-    setNodes((ns: Node[]) =>
-      ns.map((n) => ({
-        ...n,
-        data: {
-          ...n.data,
-          intersected: intersections.includes(n.id) ? true : false,
-        },
-      })),
-    );
-  }, []);
-
-  const onNodeDragStop: OnNodeDrag = useCallback((_, node) => {
-    console.log("onNodeDragStop", node);
-    const intersections = getIntersectingNodes(node).map((n) => n.id);
-    if (intersections.length > 0) {
-      createGroupNode([node.id, ...intersections]);
-    }
-  }, [createGroupNode]);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [setSelectedHighlightIds]);
 
   const onNodeClick: NodeMouseHandler = (event, node) => {
     if (isOverview || !event) return;
 
-    setSelectedHighlightId(node.id);
+    if (event.shiftKey) {
+      // Multi-select with Shift key
+      if (selectedHighlightIds.includes(node.id)) {
+        // Remove from selection if already selected
+        const newSelection = selectedHighlightIds.filter((id: string) => id !== node.id);
+        setSelectedHighlightIds(newSelection);
+      } else {
+        // Add to selection
+        const newSelection = [...selectedHighlightIds, node.id];
+        setSelectedHighlightIds(newSelection);
+      }
+    } else {
+      // Single select (clear all others)
+      setSelectedHighlightIds([node.id]);
+    }
   };
 
   const onNodeDoubleClick: NodeMouseHandler = (event, node) => {
@@ -90,6 +100,37 @@ function Flow(props: any) {
     setOnSelectNode((prev: boolean) => !prev);
   }
 
+  const onNodeContextMenu: NodeMouseHandler = (event, node) => {
+    if (isOverview || !event) return;
+
+    event.preventDefault();
+
+    // If the right-clicked node is not selected, select it
+    if (!selectedHighlightIds.includes(node.id)) {
+      setSelectedHighlightIds([node.id]);
+    }
+
+    setContextMenu({
+      open: true,
+      anchorPosition: { top: event.clientY, left: event.clientX },
+    });
+  };
+
+  const handleContextMenuClose = () => {
+    setContextMenu({ open: false, anchorPosition: undefined });
+  };
+
+  const handleCreateGroup = (label: string) => {
+    createGroupNode(selectedHighlightIds, label);
+    handleContextMenuClose();
+  };
+
+  const handleDeleteSelected = () => {
+    // TODO: Implement delete multiple nodes functionality
+    console.log("Delete selected nodes:", selectedHighlightIds);
+    handleContextMenuClose();
+  };
+
   const openOverview = () => {
     console.log("open Overview");
     if (isOverview) {
@@ -98,7 +139,7 @@ function Flow(props: any) {
       setNodes(nodes.map((node: any) => ({ ...node, type: "overview" })));
     }
 
-    setSelectedHighlightId(null);
+    setSelectedHighlightIds([]);
     setIsOverview(!isOverview);
   };
 
@@ -144,15 +185,17 @@ function Flow(props: any) {
   }, [nodes, edges]);
 
   useEffect(() => {
-    if (selectedHighlightId && onSelectNode) {
-      console.log("viewport focus on selected node");
-      const selectedNode = nodes.find((node: any) => node.id === selectedHighlightId);
-      fitView({ padding: 3.5, nodes: [selectedNode] });
+    if (selectedHighlightIds.length > 0 && onSelectNode) {
+      console.log("viewport focus on selected nodes");
+      const selectedNodes = nodes.filter((node: any) => selectedHighlightIds.includes(node.id));
+      if (selectedNodes.length > 0) {
+        fitView({ padding: 3.5, nodes: selectedNodes });
+      }
     }
     else {
       fitView({ padding: 1 });
     }
-  }, [nodes, onSelectNode, selectedHighlightId]);
+  }, [nodes, onSelectNode, selectedHighlightIds]);
 
   const changeDisplayEdgeTypes = (edgeType: string) => {
     setDisplayEdgeTypes(displayEdgeTypes.includes(edgeType) ? displayEdgeTypes.filter((type: string) => type !== edgeType) : [...displayEdgeTypes, edgeType]);
@@ -165,10 +208,9 @@ function Flow(props: any) {
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       onConnect={onConnect}
-      onNodeDrag={onNodeDrag}
-      onNodeDragStop={onNodeDragStop}
       onNodeClick={onNodeClick}
       onNodeDoubleClick={onNodeDoubleClick}
+      onNodeContextMenu={onNodeContextMenu}
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
       fitView
@@ -200,9 +242,18 @@ function Flow(props: any) {
           />
         </FormGroup>
       </Panel>
-      <Panel position="top-right">
+      {/* <Panel position="top-right">
         <IconButton onClick={openOverview}>{isOverview ? <CloseFullscreen /> : <OpenInFull />}</IconButton>
-      </Panel>
+      </Panel> */}
+
+      <ContextMenu
+        open={contextMenu.open}
+        anchorPosition={contextMenu.anchorPosition}
+        onClose={handleContextMenuClose}
+        onCreateGroup={handleCreateGroup}
+        onDeleteSelected={handleDeleteSelected}
+        selectedCount={selectedHighlightIds.length}
+      />
     </ReactFlow>
   );
 }
@@ -216,8 +267,8 @@ export default function GraphPanel() {
     onNodesChange,
     onEdgesChange,
     onConnect,
-    selectedHighlightId,
-    setSelectedHighlightId,
+    selectedHighlightIds,
+    setSelectedHighlightIds,
     onSelectNode,
     setOnSelectNode,
     createGroupNode,
@@ -237,8 +288,8 @@ export default function GraphPanel() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
-          selectedHighlightId={selectedHighlightId}
-          setSelectedHighlightId={setSelectedHighlightId}
+          selectedHighlightIds={selectedHighlightIds}
+          setSelectedHighlightIds={setSelectedHighlightIds}
           onSelectNode={onSelectNode}
           setOnSelectNode={setOnSelectNode}
           createGroupNode={createGroupNode}
@@ -247,7 +298,7 @@ export default function GraphPanel() {
         />
       </ReactFlowProvider>
 
-      {onSelectNode && selectedHighlightId && (
+      {onSelectNode && selectedHighlightIds.length > 0 && (
         <Box
           style={{
             position: "absolute",

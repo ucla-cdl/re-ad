@@ -1,16 +1,14 @@
 import { Box, Typography } from "@mui/material";
 import { Position, Handle, NodeProps, Node, useConnection } from "@xyflow/react";
-import "../../styles/GraphNode.css";
 import { usePaperContext } from "../../contexts/PaperContext";
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import "../../styles/GraphNode.css";
 
-export default function HighlightNode({ data }: NodeProps<Node>) {
-  const { id, readRecordId, label, type, content } = data as {
+export default function ThemeNode({ data }: NodeProps<Node>) {
+  const { id, readRecordId, label } = data as {
     id: string;
     readRecordId: string;
     label: string;
-    type: string;
-    content: string;
   };
   const { readRecords, displayedReads, selectedHighlightIds } = usePaperContext();
   const { color } = readRecords[readRecordId] || { color: "#e6e6e6" };
@@ -21,11 +19,11 @@ export default function HighlightNode({ data }: NodeProps<Node>) {
 
   return (
     <Box
-      className={`highlight-node ${selectedHighlightIds.includes(id) ? "selected" : ""}`}
+      className={`theme-node ${selectedHighlightIds.includes(id) ? "selected" : ""}`}
       id={`node-${id}`}
       sx={{ backgroundColor: isDisplayed ? color : "#e6e6e6" }}
     >
-      <Box sx={{ width: "100%", m: 1 }}>
+      <Box sx={{ width: "100%", m: 1, mb: 2 }}>
         {!connection.inProgress && (
           <Handle
             className="connection-handle"
@@ -57,9 +55,8 @@ export default function HighlightNode({ data }: NodeProps<Node>) {
           position={Position.Bottom}
           type="source" isConnectableStart={false}
         />
-        
-        <Typography variant="body1">{label}</Typography>
-        {type === "area" && <img src={content} alt="Node Content" style={{ maxWidth: "100%", maxHeight: "100px" }} />}
+
+        <Typography variant="h5" sx={{ fontWeight: 'bold' }}>{label}</Typography>
       </Box>
 
       <DragIndicatorIcon className="drag-handle__custom" />
