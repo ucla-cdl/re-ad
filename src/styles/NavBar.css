@@ -10,17 +10,11 @@
   letter-spacing: 0.69px;
 }
 
-.NavBar .read {
-  text-transform: none;
-}
-
-.NavBar .highlights {
+.NavBar .reads-dropdown {
   display: flex;
+  flex-direction: row;
   align-items: center;
-}
-
-.NavBar .highlights div {
-  margin-right: 8px;
+  justify-content: center;
 }
 
 .NavBar .logo-text {
@@ -34,4 +28,18 @@
   font-weight: 600;
   margin-left: 4px;
   padding-bottom: 1px;
+}
+
+.NavBar .nav-read-btn {
+  text-transform: none;
+  color: black;
+  border-width: 3px;
+  border-style: solid;
+  font-size: 16px;
+  min-width: 140px;
+  justify-content: space-between;
+  
+  &:focus {
+    outline: none !important;
+  }
 }

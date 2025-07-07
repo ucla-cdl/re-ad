@@ -21,7 +21,7 @@ export default function ThemeNode({ data }: NodeProps<Node>) {
     <Box
       className={`theme-node ${selectedHighlightIds.includes(id) ? "selected" : ""}`}
       id={`node-${id}`}
-      sx={{ backgroundColor: isDisplayed ? color : "#e6e6e6" }}
+      sx={{ backgroundColor: isDisplayed ? `${color}` : "#e6e6e6" }}
     >
       <Box sx={{ width: "100%", m: 1, mb: 2 }}>
         {!connection.inProgress && (

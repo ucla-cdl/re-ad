@@ -16,10 +16,13 @@ import {
   TextField,
   Tooltip,
   Chip,
-  Typography
+  Typography,
+  Menu,
+  ListItemIcon,
+  ListItemText
 } from "@mui/material";
 import { FormControlLabel } from "@mui/material";
-import { Add, Analytics, Close, Timeline as TimelineIcon, TipsAndUpdates } from "@mui/icons-material";
+import { AddCircleOutline, Analytics, Close, Timeline as TimelineIcon, TipsAndUpdates, KeyboardArrowDown } from "@mui/icons-material";
 import logo from "/re-ad-logo.svg";
 import { TourContext } from "../../contexts/TourContext";
 import { useNavigate } from "react-router-dom";
@@ -56,6 +59,7 @@ export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProp
   const [readingProgress, setReadingProgress] = useState<string>("");
   const [readingGoals, setReadingGoals] = useState<ReadingGoal[]>([]);
   const [openColorPicker, setOpenColorPicker] = useState(false);
+  const [readsMenuAnchor, setReadsMenuAnchor] = useState<null | HTMLElement>(null);
 
   const handleCreatingNewRead = async () => {
     setIsAddingNewRead(true);
@@ -92,6 +96,24 @@ export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProp
     setRunTour(true);
   };
 
+  const handleCloseReadsMenu = () => {
+    setReadsMenuAnchor(null);
+  };
+
+  const handleToggleReadVisibility = (readId: string, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent menu item click
+    if (displayedReads.includes(readId)) {
+      hideRead(readId);
+    } else {
+      showRead(readId);
+    }
+  };
+
+  const handleSwitchRead = (readId: string) => {
+    setCurrentReadId(readId);
+    handleCloseReadsMenu();
+  };
+
   return (
     <div className="NavBar">
       <div className="logo-text">
@@ -103,86 +125,130 @@ export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProp
         </IconButton>
       </div>
 
-      <Box className="highlights" sx={{ mx: 2 }}>
-        {Object.values(readRecords).length > 0 &&
-          Object.values(readRecords).map((readRecord) => (
-            <Box
-              className="read"
-              key={readRecord.id}
-              sx={{ borderBottom: currentReadId === readRecord.id ? `2px solid ${readRecord.color}` : "none" }}
-            >
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    onChange={() => {
-                      if (displayedReads.includes(readRecord.id)) {
-                        hideRead(readRecord.id);
-                      } else {
-                        showRead(readRecord.id);
-                      }
-                    }}
-                    sx={{
-                      color: readRecord.color,
-                      "&.Mui-checked": {
-                        color: readRecord.color,
-                      },
-                    }}
-                    checked={displayedReads.includes(readRecord.id)}
-                    disabled={currentReadId === readRecord.id}
-                  />
-                }
-                label={readRecord.title}
-              />
-            </Box>
-          ))
-        }
-
-        {Object.values(readRecords).length > 0 ? (
-          <IconButton onClick={handleCreatingNewRead}>
-            <Add />
-          </IconButton>
-        ) : (
-          <Button className="mui-button add-new-read-btn" size="small" variant="text" startIcon={<Add />} onClick={handleCreatingNewRead}>
-            <span style={{ lineHeight: 0 }}>
-              new read
-            </span>
-          </Button>
-        )}
-      </Box>
-      <Box className="active-read" sx={{ mx: 3, display: "flex", flexDirection: "row", alignItems: "center", gap: 1 }}>
-        <h4>active read:</h4>
-        {Object.values(readRecords).length > 0 ? (
-          <div>
-            <FormControl size="small" fullWidth>
-              <Select
-                value={currentReadId}
-                onChange={(e) => setCurrentReadId(e.target.value)}
+      {/* Combined Read Dropdown */}
+      <Box className="reads-dropdown">
+        {Object.values(readRecords).length > 0 ?
+          (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              {currentReadId ? (
+                <Button
+                  variant="outlined"
+                  endIcon={<KeyboardArrowDown />}
+                  onClick={(event) => setReadsMenuAnchor(event.currentTarget)}
+                  className="nav-read-btn"
+                  sx={{
+                    borderColor: readRecords[currentReadId]?.color || "#ccc",
+                    "&:hover": {
+                      borderColor: readRecords[currentReadId]?.color || "#ccc",
+                      backgroundColor: `${readRecords[currentReadId]?.color}20` || "#f5f5f5",
+                    },
+                  }}
+                >
+                  {readRecords[currentReadId]?.title}
+                </Button>
+              ) : (
+                <Button
+                  variant="outlined"
+                  endIcon={<KeyboardArrowDown />}
+                  onClick={(event) => setReadsMenuAnchor(event.currentTarget)}
+                  className="nav-read-btn"
+                  sx={{
+                    borderColor: readRecords[currentReadId]?.color || "#ccc",
+                    "&:hover": {
+                      borderColor: readRecords[currentReadId]?.color || "#ccc",
+                      backgroundColor: `${readRecords[currentReadId]?.color}20` || "#f5f5f5",
+                    }
+                  }}
+                >
+                  Please select an active read
+                </Button>
+              )}
+              <Menu
+                anchorEl={readsMenuAnchor}
+                anchorOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'center',
+                }}
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'center',
+                }}
+                open={Boolean(readsMenuAnchor)}
+                onClose={handleCloseReadsMenu}
                 sx={{
-                  "& .MuiOutlinedInput-notchedOutline": {
-                    borderColor: readRecords[currentReadId]?.color,
-                  },
-                  "&:hover .MuiOutlinedInput-notchedOutline": {
-                    borderColor: readRecords[currentReadId]?.color,
-                  },
-                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                    borderColor: readRecords[currentReadId]?.color,
-                  },
+                  minWidth: "200px"
                 }}
               >
-                {Object.values(readRecords).map((record) => (
-                  <MenuItem key={record.id} value={record.id}>
-                    {record.title}
+                {Object.values(readRecords).map((readRecord) => (
+                  <MenuItem
+                    key={readRecord.id}
+                    onClick={() => handleSwitchRead(readRecord.id)}
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 2,
+                      backgroundColor: currentReadId === readRecord.id ? `${readRecord.color}20` : "transparent",
+                      "&:hover": {
+                        backgroundColor: `${readRecord.color}30`,
+                      }
+                    }}
+                  >
+                    <ListItemIcon>
+                      <Checkbox
+                        checked={displayedReads.includes(readRecord.id)}
+                        disabled={currentReadId === readRecord.id}
+                        onClick={(event) => handleToggleReadVisibility(readRecord.id, event)}
+                        sx={{
+                          color: readRecord.color,
+                          "&.Mui-checked": {
+                            color: readRecord.color,
+                          },
+                          "&.Mui-disabled": {
+                            color: readRecord.color,
+                          }
+                        }}
+                      />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={readRecord.title}
+                      sx={{
+                        "& .MuiListItemText-primary": {
+                          fontWeight: currentReadId === readRecord.id ? "bold" : "normal"
+                        }
+                      }}
+                    />
+                    <Box
+                      sx={{
+                        width: 12,
+                        height: 12,
+                        backgroundColor: readRecord.color,
+                        borderRadius: "50%",
+                        ml: 1
+                      }}
+                    />
                   </MenuItem>
                 ))}
-              </Select>
-            </FormControl>
-          </div>
-        ) : (
-          <div>
-            <p>none</p>
-          </div>
-        )}
+              </Menu>
+              <IconButton onClick={handleCreatingNewRead} size="small">
+                <AddCircleOutline />
+              </IconButton>
+            </Box>
+          ) : (
+            <Button
+              className="mui-button add-new-read-btn"
+              size="small"
+              variant="outlined"
+              startIcon={<AddCircleOutline />}
+              onClick={handleCreatingNewRead}
+              sx={{ textTransform: "none" }}
+            >
+              New Read
+            </Button>
+          )
+        }
       </Box>
+
       <Box sx={{ mx: 2, display: 'flex', gap: 1 }}>
         <Tooltip title="Reading Analytics">
           <IconButton onClick={onAnalyticsClick}>
@@ -272,7 +338,7 @@ export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProp
                 </IconButton>
               ) : (
                 <IconButton onClick={() => setOpenColorPicker(true)}>
-                  <Add />
+                  <AddCircleOutline />
                 </IconButton>
               )}
             </Box>
