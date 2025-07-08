@@ -54,7 +54,7 @@ export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProp
   const [isAddingNewRead, setIsAddingNewRead] = useState(false);
   const [isGeneratingReadingSuggestions, setIsGeneratingReadingSuggestions] = useState(false);
   const [readingProgress, setReadingProgress] = useState<string>("");
-  const [readingGoals, setReadingGoals] = useState<ReadingGoal[]>([]);
+  const [readingGoals, setReadingGoals] = useState<ReadingGoal[] | null>(null);
   const [openColorPicker, setOpenColorPicker] = useState(false);
   const [readsMenuAnchor, setReadsMenuAnchor] = useState<null | HTMLElement>(null);
 
@@ -62,6 +62,10 @@ export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProp
     setIsAddingNewRead(true);
     setIsGeneratingReadingSuggestions(true);
     const readingSuggestion = await generateReadingGoals();
+    if (!readingSuggestion) {
+      setIsGeneratingReadingSuggestions(false);
+      return;
+    }
     setReadingProgress(readingSuggestion.readingProgress);
     setReadingGoals(readingSuggestion.readingGoals);
     setIsGeneratingReadingSuggestions(false);
@@ -300,7 +304,7 @@ export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProp
               <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%", gap: 1 }}>
                 <Typography variant="body1" sx={{ fontWeight: "bold" }}>Suggested Reading Goals:</Typography>
                 <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
-                  {readingGoals.map((goal) => (
+                  {readingGoals && readingGoals.map((goal) => (
                     <Tooltip title={goal.goalDescription} key={goal.goalName}>
                       <Chip label={goal.goalName} variant="outlined" onClick={() => setTitle(goal.goalName)} />
                     </Tooltip>

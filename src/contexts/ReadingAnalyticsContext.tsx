@@ -103,8 +103,9 @@ export const ReadingAnalyticsProvider: React.FC<{ children: React.ReactNode }> =
     if (!sessionId) return;
 
     const timestamp = Date.now();
-    const normalizedScrollPosition = pdfViewerRef.current.scroll.lastY / pdfViewerRef.current.currentScale;
-
+    const focusCenter = pdfViewerRef.current.container.clientHeight / 2;
+    const normalizedScrollPosition = (pdfViewerRef.current.scroll.lastY + focusCenter) / pdfViewerRef.current.currentScale;
+    
     setReadingSessions(prev => ({
       ...prev,
       [sessionId]: {

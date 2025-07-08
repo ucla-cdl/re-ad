@@ -101,8 +101,8 @@ export const MultiAnalysisPanel = () => {
             return;
         }
 
-        const pdfCurrentScale = pdfViewerRef.current.currentScale;
-        const pdfPageHeight = pdfViewerRef.current.getPageView(0).height / pdfCurrentScale; // Normalized page height
+        // Normalize the page height by the current scale
+        const pdfPageHeight = pdfViewerRef.current.getPageView(0).height / pdfViewerRef.current.currentScale;
         const pdfTotalHeight = pdfViewerRef.current.pagesCount * pdfPageHeight;
 
         const xScale = d3.scaleLinear()

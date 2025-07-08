@@ -11,6 +11,7 @@ import {
   useReactFlow,
   ReactFlowProvider,
   type Node,
+  useConnection,
 } from "@xyflow/react";
 import { Box, Checkbox, FormControlLabel, FormGroup, IconButton, Collapse, Paper } from "@mui/material";
 import HighlightNode from "../components/graph-components/HighlightNode";
@@ -60,6 +61,7 @@ function Flow(props: any) {
     open: boolean;
     anchorPosition: { top: number; left: number } | undefined;
   }>({ open: false, anchorPosition: undefined });
+  const [resetSelectedIdsWhenPaneClick, setResetSelectedIdsWhenPaneClick] = useState(true);
 
   // Handle keyboard shortcuts
   useEffect(() => {
@@ -95,7 +97,7 @@ function Flow(props: any) {
     }
   };
 
-  const onNodeDoubleClick: NodeMouseHandler = (event, node) => {
+  const onNodeDoubleClick: NodeMouseHandler = (event, _node) => {
     if (isOverview || !event) return;
 
     setOnSelectNode((prev: boolean) => !prev);
@@ -207,7 +209,19 @@ function Flow(props: any) {
   }
 
   const onPaneClick = () => {
-    setSelectedHighlightIds([]);
+    if (resetSelectedIdsWhenPaneClick) {
+      setSelectedHighlightIds([]);
+    }
+
+    setResetSelectedIdsWhenPaneClick(true);
+  }
+
+  const onConnectEnd = (_event: any, connectionState: any) => {
+    // do not reset the selected nodes when the connection is dropped on athe canvas
+    if (!connectionState.isValid) {
+      console.log("connectionState", connectionState);
+      setResetSelectedIdsWhenPaneClick(false);
+    }
   }
 
   return (
@@ -217,7 +231,6 @@ function Flow(props: any) {
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       connectionLineComponent={ConnectionLineComponent}
-      onConnect={onConnect}
       onNodeClick={onNodeClick}
       onNodeDoubleClick={onNodeDoubleClick}
       onNodeContextMenu={onNodeContextMenu}
@@ -225,6 +238,8 @@ function Flow(props: any) {
       edgeTypes={edgeTypes}
       fitView
       onPaneClick={onPaneClick}
+      onConnect={onConnect}
+      onConnectEnd={onConnectEnd}
       style={{ width: "100%", height: "100%" }}
     >
       <Background />

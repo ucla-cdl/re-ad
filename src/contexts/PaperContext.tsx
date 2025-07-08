@@ -315,6 +315,9 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
 
       setEdges((prevEdges) => addEdge(edge as Edge, prevEdges));
     });
+
+    // clear the selected highlight ids
+    setSelectedHighlightIds([]);
   };
 
 

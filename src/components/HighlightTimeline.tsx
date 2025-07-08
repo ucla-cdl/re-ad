@@ -54,8 +54,8 @@ export const HighlightTimeline: React.FC = () => {
             return;
         }
 
-        // TODO: the height might be different for each page OR the scale might be different -- need to figure out for robust visualization
-        const pdfPageHeight = pdfViewerRef.current.getPageView(0).height;
+        // Normalize the page height by the current scale
+        const pdfPageHeight = pdfViewerRef.current.getPageView(0).height / pdfViewerRef.current.currentScale;
         const pdfTotalHeight = pdfViewerRef.current.pagesCount * pdfPageHeight;
 
         const sessions = Object.values(readingSessions).sort((a, b) => a.startTime - b.startTime);

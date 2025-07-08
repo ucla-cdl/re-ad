@@ -9,6 +9,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: space-between;
+    hyphens: auto;
+    word-break: break-word;
 }
 
 .graph-node.selected {

@@ -15,32 +15,29 @@ export default function ThemeNode({ data }: NodeProps<Node>) {
 
   const connection = useConnection();
   const isSelected = selectedHighlightIds.includes(id);
-  const isTarget = connection.inProgress && connection.fromNode.id !== id;
+  const isTarget = connection.inProgress && !isSelected && connection.toNode?.id === id;
 
   return (
     <Box
-      className={`graph-node theme-node ${isSelected ? "selected" : ""}`}
+      className={`graph-node theme-node ${isSelected ? "selected" : ""} ${isTarget ? "target" : ""}`}
       id={`node-${id}`}
       sx={{ backgroundColor: isDisplayed ? `${color}` : "#e6e6e6" }}
     >
       <Box sx={{ width: "100%", m: 1, mb: 2 }}>
-        {isSelected && !connection.inProgress && (
-          <Handle
-            className="connection-handle"
-            id={`relational-handle-${id}-source`}
-            position={Position.Right}
-            type="source"
-          />
-        )}
-        {!isSelected && (!connection.inProgress || isTarget) && (
-          <Handle
-            className="connection-handle"
-            id={`relational-handle-${id}-target`}
-            position={Position.Left}
-            type="target"
-            isConnectableStart={false}
-          />
-        )}
+        <Handle
+          className="connection-handle"
+          id={`relational-handle-${id}-source`}
+          position={Position.Right}
+          isConnectableStart={isSelected}
+          type="source"
+        />
+        <Handle
+          className="connection-handle"
+          id={`relational-handle-${id}-target`}
+          position={Position.Left}
+          type="target"
+          isConnectableStart={false}
+        />
 
         <Handle
           className="connection-handle"
