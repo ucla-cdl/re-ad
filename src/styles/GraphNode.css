@@ -1,79 +1,56 @@
-.highlight-node {
-    max-width: 150px;
-    background-color: lightgray;
-    padding: 5px;
+.graph-node {
     border-radius: 5px;
     border: 1px solid black;
     color: black;
     text-transform: none !important;
-    font-weight: bold;
-    position: relative;
     box-sizing: border-box;
+    position: relative;
     display: flex;
     flex-direction: column;
+    align-items: center;
     justify-content: space-between;
 }
 
-.highlight-node.selected {
+.graph-node.selected {
+    filter: brightness(0.90);
     border: 2px solid black;
     box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.5);
 }
 
-.highlight-node.selected:not(:only-child) {
-    border: 2px solid #007acc;
+.graph-node.selected:not(:only-child) {
+    filter: brightness(0.90);
+    border: 2px solid black;
     box-shadow: 0 0 10px 0 rgba(0, 122, 204, 0.6);
+}
+
+.graph-node.target {
+    filter: brightness(1.1);
+    border: 2px solid black;
+    box-shadow: 0 0 10px 0 rgba(0, 122, 204, 0.6);
+}
+
+.highlight-node {
+    max-width: 150px;
+    font-weight: bold;
+    padding: 15px;
 }
 
 .overview-node {
     max-width: 150px;
-    background-color: lightgray;
-    padding: 5px;
-    border-radius: 5px;
-    border: 1px solid black;
-    color: black;
-    text-transform: none !important;
-}
-
-.overview-node.selected {
-    border: 2px solid black;
-    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.5);
-}
-
-.overview-node.selected:not(:only-child) {
-    border: 2px solid #007acc;
-    box-shadow: 0 0 10px 0 rgba(0, 122, 204, 0.6);
+    font-weight: bold;
+    padding: 15px;
 }
 
 .theme-node {
     max-width: 300px;
-    background-color: lightgray;
-    padding: 15px;
-    border-radius: 15px;
-    border: 1px solid black;
-    color: black;
-    text-transform: none !important;
     font-weight: bold;
-    position: relative;
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-}
-
-.theme-node.selected {
-    border: 2px solid black;
-    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.5);
-}
-
-.theme-node.selected:not(:only-child) {
-    border: 2px solid #007acc;
-    box-shadow: 0 0 10px 0 rgba(0, 122, 204, 0.6);
+    padding: 20px;
+    border-width: 2px;
 }
 
 .connection-handle {
     width: 100%;
     height: 100%;
-    background: blue;
     position: absolute;
     top: 0;
     left: 0;
@@ -81,12 +58,4 @@
     transform: none;
     border: none;
     opacity: 0;
-}
-
-.drag-handle__custom {
-    margin: 0 auto;
-    width: 24px;
-    height: 40px;
-    cursor: grab;
-    transform: rotate(90deg);
 }

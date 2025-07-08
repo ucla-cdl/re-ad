@@ -11,7 +11,7 @@ export default function OverviewNode({ data }: NodeProps<Node>) {
 
     return (
         <Box
-            className={`overview-node ${selectedHighlightIds.includes(id) ? "selected" : ""}`}
+            className={`graph-node overview-node ${selectedHighlightIds.includes(id) ? "selected" : ""}`}
             id={`node-${id}`}
             sx={{ backgroundColor: isDisplayed ? color : "#e6e6e6" }}
         >

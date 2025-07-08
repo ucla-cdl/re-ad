@@ -1,4 +1,5 @@
-import { Position } from '@xyflow/react';
+import { getSimpleBezierPath, useNodes, useReactFlow, Position } from '@xyflow/react';
+import { usePaperContext } from '../../contexts/PaperContext';
  
 // this helper function returns the intersection point
 // of the line between the center of the intersectionNode and the target node
@@ -69,3 +70,54 @@ export function getEdgeParams(source: any, target: any) {
     targetPos,
   };
 }
+
+ 
+export function ConnectionLineComponent({ toX, toY }: { toX: number, toY: number }) {
+  const { getInternalNode } = useReactFlow();
+  const { selectedHighlightIds } = usePaperContext();
+
+  const nodes = useNodes();
+  const selectedNodes = nodes.filter((node) => selectedHighlightIds.includes(node.id));
+ 
+  const handleBounds = selectedNodes.flatMap((userNode) => {
+    const node = getInternalNode(userNode.id);
+ 
+    // we only want to draw a connection line from a source handle
+    if (!node?.internals?.handleBounds?.source) {
+      return [];
+    }
+ 
+    return node.internals.handleBounds.source?.map((bounds) => ({
+      id: node.id,
+      positionAbsolute: node.internals.positionAbsolute,
+      bounds,
+    }));
+  });
+ 
+  return handleBounds.map(({ id, positionAbsolute, bounds }) => {
+    const fromHandleX = bounds.x + bounds.width / 2;
+    const fromHandleY = bounds.y + bounds.height / 2;
+    const fromX = positionAbsolute.x + fromHandleX;
+    const fromY = positionAbsolute.y + fromHandleY;
+    const [d] = getSimpleBezierPath({
+      sourceX: fromX,
+      sourceY: fromY,
+      targetX: toX,
+      targetY: toY,
+    });
+ 
+    return (
+      <g key={`${id}-${bounds.id}`}>
+        <path fill="none" strokeWidth={1} stroke="#b1b1b7" d={d} />
+        {/* <circle
+          cx={toX}
+          cy={toY}
+          fill="#fff"
+          r={3}
+          stroke="black"
+          strokeWidth={1.5}
+        /> */}
+      </g>
+    );
+  });
+};

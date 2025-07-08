@@ -51,36 +51,41 @@ function PaperPanel() {
   return (
     <Box style={{ width: "100%", height: "100%", display: "flex", flexDirection: "row" }}>
       {paperUrl &&
-          <Box
-            style={{
-              height: "100%",
-              width: "100%",
-              position: "relative",
-            }}
-            className="pdf pdf-container"
-          >
-            <PdfLoader document={paperUrl}>
-              {(pdfDocument) => (
-                <PdfHighlighter
-                  enableAreaSelection={(event) => event.altKey}
-                  pdfDocument={pdfDocument}
-                  utilsRef={(_pdfHighlighterUtils) => {
-                    pdfViewerRef.current = _pdfHighlighterUtils.getViewer();
-                    highlighterUtilsRef.current = _pdfHighlighterUtils;
-                  }}
-                  selectionTip={
-                    Object.keys(readRecords).length > 0 && currentReadId !== "" ? (
-                      <ExpandableTip addHighlight={addHighlight} />
-                    ) : null
-                  }
-                  highlights={highlights}
-                  textSelectionColor={readRecords[currentReadId]?.color}
-                >
-                  <HighlightContainer setSelectedHighlightIds={setSelectedHighlightIds} readRecords={readRecords} displayedReads={displayedReads} />
-                </PdfHighlighter>
-              )}
-            </PdfLoader>
-          </Box>
+        <Box
+          style={{
+            height: "100%",
+            width: "100%",
+            position: "relative",
+          }}
+          className="pdf pdf-container"
+        >
+          <PdfLoader document={paperUrl}>
+            {(pdfDocument) => (
+              <PdfHighlighter
+                enableAreaSelection={(event) => event.altKey}
+                pdfDocument={pdfDocument}
+                utilsRef={(_pdfHighlighterUtils) => {
+                  pdfViewerRef.current = _pdfHighlighterUtils.getViewer();
+                  highlighterUtilsRef.current = _pdfHighlighterUtils;
+                }}
+                selectionTip={
+                  Object.keys(readRecords).length > 0 && currentReadId !== "" ? (
+                    <ExpandableTip addHighlight={addHighlight} />
+                  ) : null
+                }
+                highlights={highlights}
+                textSelectionColor={readRecords[currentReadId]?.color}
+              >
+                <HighlightContainer
+                  readRecords={readRecords}
+                  displayedReads={displayedReads} 
+                  selectedHighlightIds={selectedHighlightIds}
+                  setSelectedHighlightIds={setSelectedHighlightIds}
+                />
+              </PdfHighlighter>
+            )}
+          </PdfLoader>
+        </Box>
       }
     </Box>
   );

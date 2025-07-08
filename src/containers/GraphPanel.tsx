@@ -12,16 +12,17 @@ import {
   ReactFlowProvider,
   type Node,
 } from "@xyflow/react";
-import { Box, Checkbox, FormControlLabel, FormGroup, IconButton } from "@mui/material";
+import { Box, Checkbox, FormControlLabel, FormGroup, IconButton, Collapse, Paper } from "@mui/material";
 import HighlightNode from "../components/graph-components/HighlightNode";
 import OverviewNode from "../components/graph-components/OverviewNode";
 import ChronologicalEdge from "../components/graph-components/ChronologicalEdge";
 import RelationalEdge from "../components/graph-components/RelationalEdge";
 import { usePaperContext, EDGE_TYPES } from "../contexts/PaperContext";
 import NodeEditor from "../components/node-components/NodeEditor";
-import { CloseFullscreen, OpenInFull } from "@mui/icons-material";
+import { CloseFullscreen, OpenInFull, Settings } from "@mui/icons-material";
 import ThemeNode from "../components/graph-components/ThemeNode";
 import ContextMenu from "../components/ContextMenu";
+import { ConnectionLineComponent } from "../components/graph-components/utils";
 
 const nodeTypes = {
   highlight: HighlightNode,
@@ -54,6 +55,7 @@ function Flow(props: any) {
 
   const { fitView } = useReactFlow();
   const [isOverview, setIsOverview] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
     open: boolean;
     anchorPosition: { top: number; left: number } | undefined;
@@ -76,8 +78,8 @@ function Flow(props: any) {
   const onNodeClick: NodeMouseHandler = (event, node) => {
     if (isOverview || !event) return;
 
+    // Multi-select with Shift key
     if (event.shiftKey) {
-      // Multi-select with Shift key
       if (selectedHighlightIds.includes(node.id)) {
         // Remove from selection if already selected
         const newSelection = selectedHighlightIds.filter((id: string) => id !== node.id);
@@ -94,7 +96,6 @@ function Flow(props: any) {
   };
 
   const onNodeDoubleClick: NodeMouseHandler = (event, node) => {
-    console.log("onNodeDoubleClick", node);
     if (isOverview || !event) return;
 
     setOnSelectNode((prev: boolean) => !prev);
@@ -201,12 +202,21 @@ function Flow(props: any) {
     setDisplayEdgeTypes(displayEdgeTypes.includes(edgeType) ? displayEdgeTypes.filter((type: string) => type !== edgeType) : [...displayEdgeTypes, edgeType]);
   }
 
+  const toggleSettings = () => {
+    setSettingsOpen(!settingsOpen);
+  }
+
+  const onPaneClick = () => {
+    setSelectedHighlightIds([]);
+  }
+
   return (
     <ReactFlow
       nodes={nodes}
       edges={edges}
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
+      connectionLineComponent={ConnectionLineComponent}
       onConnect={onConnect}
       onNodeClick={onNodeClick}
       onNodeDoubleClick={onNodeDoubleClick}
@@ -214,33 +224,69 @@ function Flow(props: any) {
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
       fitView
+      onPaneClick={onPaneClick}
       style={{ width: "100%", height: "100%" }}
     >
       <Background />
       <Controls onFitView={() => onLayout("TB")} style={{ color: "black" }} />
       <MiniMap />
 
-      <Panel position="top-left" style={{ color: "black" }}>
-        <FormGroup>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={displayEdgeTypes.includes(EDGE_TYPES.CHRONOLOGICAL)}
-                onClick={() => changeDisplayEdgeTypes(EDGE_TYPES.CHRONOLOGICAL)}
-              />
-            }
-            label="Chronological Link"
-          />
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={displayEdgeTypes.includes(EDGE_TYPES.RELATIONAL)}
-                onClick={() => changeDisplayEdgeTypes(EDGE_TYPES.RELATIONAL)}
-              />
-            }
-            label="Relational Link"
-          />
-        </FormGroup>
+      <Panel position="top-right" style={{ color: "black" }}>
+        <Box sx={{ position: 'relative' }}>
+          <IconButton
+            onClick={toggleSettings}
+            size="small"
+            sx={{
+              backgroundColor: settingsOpen ? 'rgba(0, 0, 0, 0.1)' : 'transparent',
+              '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.1)' },
+              '&:focus': { outline: 'none' }
+            }}
+          >
+            <Settings />
+          </IconButton>
+
+          {settingsOpen && (
+            <Paper
+              elevation={4}
+              sx={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                mt: 0.5,
+                p: 1.5,
+                backgroundColor: 'white',
+                minWidth: 200,
+                zIndex: 1000,
+                borderRadius: 1
+              }}
+            >
+              <FormGroup>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={displayEdgeTypes.includes(EDGE_TYPES.CHRONOLOGICAL)}
+                      onChange={() => changeDisplayEdgeTypes(EDGE_TYPES.CHRONOLOGICAL)}
+                    />
+                  }
+                  label="Chronological Link"
+                  sx={{ fontSize: '0.875rem', mb: 0.5 }}
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={displayEdgeTypes.includes(EDGE_TYPES.RELATIONAL)}
+                      onChange={() => changeDisplayEdgeTypes(EDGE_TYPES.RELATIONAL)}
+                    />
+                  }
+                  label="Relational Link"
+                  sx={{ fontSize: '0.875rem' }}
+                />
+              </FormGroup>
+            </Paper>
+          )}
+        </Box>
       </Panel>
       {/* <Panel position="top-right">
         <IconButton onClick={openOverview}>{isOverview ? <CloseFullscreen /> : <OpenInFull />}</IconButton>

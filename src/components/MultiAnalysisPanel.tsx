@@ -100,8 +100,9 @@ export const MultiAnalysisPanel = () => {
         if (!pdfViewerRef.current) {
             return;
         }
-        // TODO: the height might be different for each page OR the scale might be different -- need to figure out for robust visualization
-        const pdfPageHeight = pdfViewerRef.current.getPageView(0).height;
+
+        const pdfCurrentScale = pdfViewerRef.current.currentScale;
+        const pdfPageHeight = pdfViewerRef.current.getPageView(0).height / pdfCurrentScale; // Normalized page height
         const pdfTotalHeight = pdfViewerRef.current.pagesCount * pdfPageHeight;
 
         const xScale = d3.scaleLinear()
@@ -157,7 +158,7 @@ export const MultiAnalysisPanel = () => {
 
                 highlights.filter(highlight => highlight.sessionId === session.sessionId).forEach(highlight => {
                     const relativeTime = highlight.timestamp - session.startTime + durationIntercept;
-                    const yPosition = (highlight.position.boundingRect.pageNumber - 1) * pdfPageHeight + highlight.position.boundingRect.y1;
+                    const yPosition = (highlight.position.boundingRect.pageNumber - 1) * pdfPageHeight + highlight.normalizedPositionY;
                     g.append("circle")
                         .attr("class", `highlight-circle-${highlight.readRecordId}`)
                         .attr("cx", xScale(relativeTime))
@@ -176,7 +177,7 @@ export const MultiAnalysisPanel = () => {
     const toggleTimelineColor = (studentId: string, isSelected: boolean) => {
         const readingState = multipleReadingStateData[studentId];
         if (!readingState) return;
-        
+
         const readRecords = readingState.state.readRecords;
         if (isSelected) {
             const g = d3.select(`#reading-session-${studentId}`);

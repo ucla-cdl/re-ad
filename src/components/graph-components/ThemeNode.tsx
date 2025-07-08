@@ -1,7 +1,6 @@
 import { Box, Typography } from "@mui/material";
 import { Position, Handle, NodeProps, Node, useConnection } from "@xyflow/react";
 import { usePaperContext } from "../../contexts/PaperContext";
-import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import "../../styles/GraphNode.css";
 
 export default function ThemeNode({ data }: NodeProps<Node>) {
@@ -15,16 +14,17 @@ export default function ThemeNode({ data }: NodeProps<Node>) {
   const isDisplayed = displayedReads.includes(readRecordId);
 
   const connection = useConnection();
+  const isSelected = selectedHighlightIds.includes(id);
   const isTarget = connection.inProgress && connection.fromNode.id !== id;
 
   return (
     <Box
-      className={`theme-node ${selectedHighlightIds.includes(id) ? "selected" : ""}`}
+      className={`graph-node theme-node ${isSelected ? "selected" : ""}`}
       id={`node-${id}`}
       sx={{ backgroundColor: isDisplayed ? `${color}` : "#e6e6e6" }}
     >
       <Box sx={{ width: "100%", m: 1, mb: 2 }}>
-        {!connection.inProgress && (
+        {isSelected && !connection.inProgress && (
           <Handle
             className="connection-handle"
             id={`relational-handle-${id}-source`}
@@ -32,7 +32,7 @@ export default function ThemeNode({ data }: NodeProps<Node>) {
             type="source"
           />
         )}
-        {(!connection.inProgress || isTarget) && (
+        {!isSelected && (!connection.inProgress || isTarget) && (
           <Handle
             className="connection-handle"
             id={`relational-handle-${id}-target`}
@@ -58,8 +58,6 @@ export default function ThemeNode({ data }: NodeProps<Node>) {
 
         <Typography variant="h5" sx={{ fontWeight: 'bold' }}>{label}</Typography>
       </Box>
-
-      <DragIndicatorIcon className="drag-handle__custom" />
     </Box>
   );
 }

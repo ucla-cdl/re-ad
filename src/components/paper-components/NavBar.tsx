@@ -9,10 +9,8 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControl,
   IconButton,
   MenuItem,
-  Select,
   TextField,
   Tooltip,
   Chip,
@@ -21,7 +19,6 @@ import {
   ListItemIcon,
   ListItemText
 } from "@mui/material";
-import { FormControlLabel } from "@mui/material";
 import { AddCircleOutline, Analytics, Close, Timeline as TimelineIcon, TipsAndUpdates, KeyboardArrowDown } from "@mui/icons-material";
 import logo from "/re-ad-logo.svg";
 import { TourContext } from "../../contexts/TourContext";

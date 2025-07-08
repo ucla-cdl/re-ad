@@ -100,8 +100,8 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   const tourContext = useContext(TourContext);
   if (!tourContext) {
     throw new Error("TourContext not found");
-    }
-    // const { setRunTour } = tourContext;
+  }
+  // const { setRunTour } = tourContext;
 
   const { userData, getReadingStateData } = useStorageContext();
 
@@ -220,6 +220,9 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   const addHighlight = (highlight: GhostHighlight) => {
     const id = `${currentReadId}-${chronologicalSeq}`;
 
+    if (!pdfViewerRef.current) return;
+    const normalizedPositionY = highlight.position.boundingRect.y1 / pdfViewerRef.current.currentScale;
+
     setHighlights((prevHighlights: Array<ReadHighlight>) => [
       ...prevHighlights,
       {
@@ -228,6 +231,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         readRecordId: currentReadId,
         sessionId: currentSessionId,
         timestamp: Date.now(),
+        normalizedPositionY: normalizedPositionY,
       },
     ]);
 
@@ -294,17 +298,25 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     setNodes(currentNodes);
   };
 
-  const onConnect = useCallback((connection: Connection) => {
-    const edge = {
-      ...connection,
-      sourceHandle: `relational-handle-${connection.source}-source`,
-      targetHandle: `relational-handle-${connection.target}-target`,
-      type: EDGE_TYPES.RELATIONAL,
-      markerEnd: { type: MarkerType.Arrow },
-      hidden: !displayEdgeTypes.includes(EDGE_TYPES.RELATIONAL)
-    };
-    setEdges((prevEdges) => addEdge(edge, prevEdges));
-  }, []);
+  const onConnect = (connection: Connection) => {
+    selectedHighlightIds.forEach((selectedId) => {
+      if (selectedHighlightIds.includes(connection.target)) return;
+
+      const edge = {
+        source: selectedId,
+        target: connection.target,
+        sourceHandle: `relational-handle-${selectedId}-source`,
+        targetHandle: `relational-handle-${connection.target}-target`,
+        id: `relational-${selectedId}-${connection.target}`,
+        type: EDGE_TYPES.RELATIONAL,
+        markerEnd: { type: MarkerType.Arrow },
+        hidden: !displayEdgeTypes.includes(EDGE_TYPES.RELATIONAL)
+      };
+
+      setEdges((prevEdges) => addEdge(edge as Edge, prevEdges));
+    });
+  };
+
 
   const createGroupNode = (childNodeIds: string[], label?: string) => {
     if (childNodeIds.length < 2) return; // Need at least 2 nodes to create a group
@@ -314,7 +326,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     // const id = `${currentReadId}-${chronologicalSeq}`;
     const newGroupNodeId = uuidv4();
     const selectedNodes = nodes.filter(node => childNodeIds.includes(node.id));
-    
+
     const groupNode = {
       id: newGroupNodeId,
       type: NODE_TYPES.THEME,
@@ -413,11 +425,11 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   };
 
   const hideRead = (readId: string) => {
-    setDisplayedReads((prevDisplayedReads) => prevDisplayedReads.filter((id) => id !== readId));
+    setDisplayedReads(displayedReads.filter((id) => id !== readId));
   };
 
   const showRead = (readId: string) => {
-    setDisplayedReads((prevDisplayedReads) => [...prevDisplayedReads, readId]);
+    setDisplayedReads([...displayedReads, readId]);
   };
 
   const query_gemini = async (prompt: string, data?: any) => {

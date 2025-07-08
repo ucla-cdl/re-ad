@@ -11,17 +11,20 @@ export interface ReadHighlight extends Highlight {
     sessionId: string;
     content: Content;
     timestamp: number;
+    normalizedPositionY: number;
 }
 
 interface HighlightContainerProps {
     readRecords: any;
     displayedReads: Array<string>;
+    selectedHighlightIds: Array<string>;
     setSelectedHighlightIds: (ids: Array<string>) => void;
 }
 
 function HighlightContainer({
     readRecords,
     displayedReads,
+    selectedHighlightIds,
     setSelectedHighlightIds,
 }: HighlightContainerProps) {
     const {
@@ -30,8 +33,8 @@ function HighlightContainer({
         highlightBindings,
     } = useHighlightContainerContext<ReadHighlight>();
 
-    // Transparent Colors: #f2f2f2, #e6e6e6, #d9d9d9
     const color = displayedReads.includes(highlight.readRecordId) ? readRecords[highlight.readRecordId].color : "#e6e6e6";
+    const isSelected = selectedHighlightIds.includes(highlight.id);
 
     return (
         highlight.type === "text" ?
@@ -40,6 +43,7 @@ function HighlightContainer({
                 highlight={highlight}
                 style={{
                     background: color,
+                    border: isSelected ? `2px solid black` : "none",
                 }}
                 onClick={() => setSelectedHighlightIds([highlight.id])}
             />
@@ -51,6 +55,7 @@ function HighlightContainer({
                 style={{
                     background: color,
                     pointerEvents: "none",
+                    border: isSelected ? `2px solid black` : "none",
                 }}
             />
     );

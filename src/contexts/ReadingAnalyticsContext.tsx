@@ -97,12 +97,14 @@ export const ReadingAnalyticsProvider: React.FC<{ children: React.ReactNode }> =
 
   // Update the reading session
   const updateReadingSession = () => {
-    if (!currentSessionIdRef.current) return;
+    if (!currentSessionIdRef.current || !pdfViewerRef.current) return;
 
     const sessionId = currentSessionIdRef.current;
     if (!sessionId) return;
 
     const timestamp = Date.now();
+    const normalizedScrollPosition = pdfViewerRef.current.scroll.lastY / pdfViewerRef.current.currentScale;
+
     setReadingSessions(prev => ({
       ...prev,
       [sessionId]: {
@@ -110,7 +112,7 @@ export const ReadingAnalyticsProvider: React.FC<{ children: React.ReactNode }> =
         duration: timestamp - prev[sessionId].startTime,
         scrollSequence: [
           ...prev[sessionId].scrollSequence, 
-          [timestamp, pdfViewerRef.current?.scroll.lastY || 0]
+          [timestamp, normalizedScrollPosition || 0]
         ],
       },
     }));
