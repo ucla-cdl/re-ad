@@ -20,7 +20,7 @@ import { usePaperContext, EDGE_TYPES } from "../contexts/PaperContext";
 import NodeEditor from "../components/node-components/NodeEditor";
 import { CloseFullscreen, OpenInFull, Settings } from "@mui/icons-material";
 import ThemeNode from "../components/graph-components/ThemeNode";
-import ContextMenu from "../components/ContextMenu";
+import ContextMenu from "../components/graph-components/ContextMenu";
 import { ConnectionLineComponent } from "../components/graph-components/utils";
 
 const nodeTypes = {

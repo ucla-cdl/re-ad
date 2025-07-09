@@ -4,7 +4,7 @@
   box-sizing: border-box;
   align-items: center;
   color: black;
-  padding: calc(5px + 2rem);
+  padding: calc(5px + 1rem);
   border-bottom: 1px solid #e0e0e0;
   justify-content: space-between;
   letter-spacing: 0.69px;
@@ -42,4 +42,20 @@
   &:focus {
     outline: none;
   }
+}
+
+.nav-mode-switch {
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18), 0 1.5px 4px rgba(0,0,0,0.10);
+  border-radius: 50px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  width: max-content;
+  transition: box-shadow 0.2s;
+  padding: 0.2rem 0.75rem;
+}
+
+.nav-mode-switch:hover {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.13);
 }

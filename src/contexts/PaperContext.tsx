@@ -14,7 +14,7 @@ import {
 // import { useTourContext } from "./TourContext";
 import { PDFViewer } from "pdfjs-dist/types/web/pdf_viewer";
 import { v4 as uuidv4 } from 'uuid';
-import { Canvas, ReadHighlight, ReadPurpose, ReadSession, useStorageContext } from "./StorageContext";
+import { Canvas, PaperData, ReadHighlight, ReadPurpose, ReadSession, UserData, UserRole, useStorageContext } from "./StorageContext";
 import { GoogleGenAI, Type } from "@google/genai";
 import { READING_GOAL_GENERATE_PROMPT, READING_SUGGESTION_SYSTEM_PROMPT } from "../utils/prompts";
 
@@ -60,18 +60,29 @@ type PaperContextData = {
   showRead: (readId: string) => void;
   selectedHighlightIds: Array<string>;
   setSelectedHighlightIds: (highlightIds: Array<string>) => void;
-  
+
   // Read Log
   readSessions: Record<string, ReadSession>;
   setReadSessions: (readSessions: Record<string, ReadSession>) => void;
-  
+
   // LLM
   query_gemini: (prompt: string, data: any) => Promise<string>;
+
   // Mode
   mode: "reading" | "analyzing";
   changeMode: (mode: "reading" | "analyzing") => void;
   saving: boolean;
   saveReadingData: () => Promise<void>;
+
+  // Global Data
+  usersDict: Record<string, UserData>;
+  papersDict: Record<string, PaperData>;
+
+  // Analytics Selection
+  selectedAnalyticsPapersId: string[];
+  selectedAnalyticsUsersId: string[];
+  togglePaperForAnalytics: (paperId: string) => void;
+  toggleUserForAnalytics: (userId: string) => void;
 };
 
 const PaperContext = createContext<PaperContextData | undefined>(undefined);
@@ -111,11 +122,19 @@ const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 export const PaperContextProvider = ({ children }: { children: React.ReactNode }) => {
   // const { setRunTour } = useTourContext();
-  const { userData, getHighlightsByUsersAndPapers, getPurposesByUserAndPaper, getCanvasUserAndPaper, getSessionsByUsersAndPapers, batchAddPurposes, batchAddHighlights, batchAddSessions, createCanvas } = useStorageContext();
+  const { userData, getHighlightsByUsersAndPapers, getPurposesByUserAndPaper, getCanvasUserAndPaper, getSessionsByUsersAndPapers, batchAddPurposes, batchAddHighlights, batchAddSessions, createCanvas, getAllUsers, getAllPapersData } = useStorageContext();
 
   // Mode
   const [mode, setMode] = useState<"reading" | "analyzing">("reading");
   const [saving, setSaving] = useState(false);
+
+  // Global Data
+  const [usersDict, setUsersDict] = useState<Record<string, UserData>>({});
+  const [papersDict, setPapersDict] = useState<Record<string, PaperData>>({});
+
+  // Analytics Selection
+  const [selectedAnalyticsPapersId, setSelectedAnalyticsPapersId] = useState<string[]>([]);
+  const [selectedAnalyticsUsersId, setSelectedAnalyticsUsersId] = useState<string[]>([]);
 
   // Paper
   const [paperId, setPaperId] = useState<string | null>(null);
@@ -148,8 +167,37 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
   useEffect(() => {
+    loadUsersAndPapers();
+  }, [userData]);
+
+  const loadUsersAndPapers = async () => {
+    if (!userData) return;
+
+    if (userData.role === UserRole.STUDENT) {
+      setUsersDict({
+        [userData.id]: userData,
+      });
+    }
+    else {
+      const users = await getAllUsers(UserRole.STUDENT);
+      setUsersDict(users.reduce((acc, user) => {
+        acc[user.id] = user;
+        return acc;
+      }, {} as Record<string, UserData>));
+    }
+
+    // TODO: only load papers that the user has access to
+    const papers = await getAllPapersData();
+    setPapersDict(papers.reduce((acc, paper) => {
+      acc[paper.id] = paper;
+      return acc;
+    }, {} as Record<string, PaperData>));
+  }
+
+
+  useEffect(() => {
     loadPaperContext();
-  }, [userData, paperId]);
+  }, [paperId]);
 
   const resetControlStates = () => {
     setCurrentReadId("");
@@ -198,7 +246,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         const sessions = sessionsByUserAndPaper[`${userData.id}_${paperId}`] || [];
         setReadSessions(sessions.reduce((acc, session) => {
           acc[session.id] = session;
-          return acc; 
+          return acc;
         }, {} as Record<string, ReadSession>));
 
         resetControlStates();
@@ -224,6 +272,9 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     if (newMode === "reading") {
       resetControlStates();
     } else if (newMode === "analyzing") {
+      setSelectedAnalyticsPapersId([paperId!]);
+      setSelectedAnalyticsUsersId([userData!.id]);
+      
       stopUpdateReadingSession();
       await saveReadingData();
       resetControlStates();
@@ -630,6 +681,25 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     }
   }
 
+  // Analytics Selection Functions
+  const togglePaperForAnalytics = (paperId: string) => {
+    setSelectedAnalyticsPapersId(prev => {
+      if (prev.includes(paperId)) {
+        return prev.filter(id => id !== paperId);
+      }
+      return [...prev, paperId];
+    });
+  };
+
+  const toggleUserForAnalytics = (userId: string) => {
+    setSelectedAnalyticsUsersId(prev => {
+      if (prev.includes(userId)) {
+        return prev.filter(id => id !== userId);
+      }
+      return [...prev, userId];
+    });
+  };
+
   const query_gemini = async (prompt: string, data?: any) => {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
@@ -718,6 +788,14 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         changeMode,
         saving,
         saveReadingData,
+        // Global Data
+        usersDict,
+        papersDict,
+        // Analytics Selection
+        selectedAnalyticsPapersId,
+        selectedAnalyticsUsersId,
+        togglePaperForAnalytics,
+        toggleUserForAnalytics,
       }}
     >
       {children}

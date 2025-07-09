@@ -23,7 +23,7 @@ import {
   CircularProgress,
   Switch
 } from "@mui/material";
-import { AddCircleOutline, Close, TipsAndUpdates, KeyboardArrowDown, Save, Book, Analytics } from "@mui/icons-material";
+import { AddCircleOutline, Close, TipsAndUpdates, KeyboardArrowDown, Save, MenuBook, Analytics } from "@mui/icons-material";
 import logo from "/re-ad-logo.svg";
 import { useNavigate } from "react-router-dom";
 import { ChromePicker } from 'react-color';
@@ -264,24 +264,24 @@ export default function NavBar() {
         )}
       </Box>
 
-      <Box sx={{ mx: 2, display: 'flex', gap: 1 }}>
+      <Box sx={{ mx: 2, display: 'flex', gap: 2, alignItems: "center", justifyContent: "flex-end" }}>
         {mode === 'reading' && (
-          <Tooltip title="Save all changes">
-            <IconButton
-              onClick={saveReadingData}
-              disabled={saving}
-            >
-              <Save />
-            </IconButton>
-          </Tooltip>
+          <IconButton
+            onClick={saveReadingData}
+            disabled={saving}
+            size="small"
+          >
+            <Save fontSize="small" />
+          </IconButton>
         )}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Book sx={{ color: mode === "reading" ? "primary.main" : "text.secondary" }} />
+        <Box className="nav-mode-switch">
+          <MenuBook sx={{ boxSizing: "border-box", color: mode === "reading" ? "primary.main" : "text.secondary" }} />
           <Switch
             checked={mode === "analyzing"}
             onChange={(_, checked) => changeMode(checked ? "analyzing" : "reading")}
             inputProps={{ 'aria-label': 'toggle mode' }}
             sx={{
+              boxSizing: "border-box",
               '& .MuiSwitch-thumb': {
                 backgroundColor: 'white',
               },
@@ -290,7 +290,7 @@ export default function NavBar() {
               },
             }}
           />
-          <Analytics sx={{ color: mode === "analyzing" ? "primary.main" : "text.secondary" }} />
+          <Analytics sx={{ boxSizing: "border-box", color: mode === "analyzing" ? "primary.main" : "text.secondary" }} />
         </Box>
       </Box>
 
