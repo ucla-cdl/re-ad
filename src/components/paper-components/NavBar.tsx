@@ -1,6 +1,7 @@
-import { useContext, useState } from "react";
+import { useState } from "react";
 import "../../styles/NavBar.css";
-import { ReadingGoal, usePaperContext } from "../../contexts/PaperContext";
+import { ReadGoal, usePaperContext } from "../../contexts/PaperContext";
+import { useTourContext } from "../../contexts/TourContext";
 import {
   Box,
   Button,
@@ -17,13 +18,17 @@ import {
   Typography,
   Menu,
   ListItemIcon,
-  ListItemText
+  ListItemText,
+  Backdrop,
+  CircularProgress
 } from "@mui/material";
-import { AddCircleOutline, Analytics, Close, Timeline as TimelineIcon, TipsAndUpdates, KeyboardArrowDown } from "@mui/icons-material";
+import { AddCircleOutline, Analytics, Close, Timeline as TimelineIcon, TipsAndUpdates, KeyboardArrowDown, Save } from "@mui/icons-material";
 import logo from "/re-ad-logo.svg";
-import { TourContext } from "../../contexts/TourContext";
 import { useNavigate } from "react-router-dom";
-import { ChromePicker } from 'react-color';
+import { ChromePicker } from 'react-color'; 
+import { Canvas, useStorageContext } from "../../contexts/StorageContext";
+import { v4 as uuidv4 } from 'uuid';
+import { useReadingAnalyticsContext } from "../../contexts/ReadingAnalyticsContext";
 
 interface NavBarProps {
   onAnalyticsClick: () => void;
@@ -42,21 +47,24 @@ const colorPalette = [
 ];
 
 export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProps) {
-  const { readRecords, currentReadId, setCurrentReadId, displayedReads, hideRead, showRead, createRead, generateReadingGoals } = usePaperContext();
+  const { createCanvas, batchAddPurposes, batchAddHighlights, batchAddSessions, userData } = useStorageContext();
+  const { readPurposes, currentReadId, setCurrentReadId, displayedReads, hideRead, showRead, createRead, generateReadingGoals, paperId, nodes, edges, highlights } = usePaperContext();
+  const { readSessions } = useReadingAnalyticsContext();
+  
+  const { setRunTour } = useTourContext();
   const navigate = useNavigate();
-  const tourContext = useContext(TourContext);
-  if (!tourContext) {
-    throw new Error("TourContext not found");
-  }
-  const { setRunTour } = tourContext;
+
   const [title, setTitle] = useState<string>("");
   const [color, setColor] = useState<string | null>(null);
   const [isAddingNewRead, setIsAddingNewRead] = useState(false);
   const [isGeneratingReadingSuggestions, setIsGeneratingReadingSuggestions] = useState(false);
   const [readingProgress, setReadingProgress] = useState<string>("");
-  const [readingGoals, setReadingGoals] = useState<ReadingGoal[] | null>(null);
+  const [readingGoals, setReadingGoals] = useState<ReadGoal[] | null>(null);
   const [openColorPicker, setOpenColorPicker] = useState(false);
   const [readsMenuAnchor, setReadsMenuAnchor] = useState<null | HTMLElement>(null);
+  
+  // Save state management
+  const [saving, setSaving] = useState(false);
 
   const handleCreatingNewRead = async () => {
     setIsAddingNewRead(true);
@@ -115,6 +123,41 @@ export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProp
     handleCloseReadsMenu();
   };
 
+  const handleSave = async () => {
+    if (!userData) {
+      alert("Please login to save your work");
+      return;
+    }
+
+    if (saving) return; // Prevent multiple saves
+
+    setSaving(true);
+
+    try {
+      const purposes = Object.values(readPurposes);
+      await batchAddPurposes(purposes);
+      await batchAddHighlights(highlights);
+      await batchAddSessions(Object.values(readSessions));
+
+      const canvas = {
+        id: uuidv4(),
+        userId: userData.id,
+        paperId: paperId,
+        reactFlowJson: JSON.stringify({
+          nodes: nodes,
+          edges: edges,
+        }),
+      }
+      await createCanvas(canvas as Canvas);
+      
+    } catch (error: any) {
+      console.error('Error saving data:', error);
+      alert('Failed to save data. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="NavBar">
       <div className="logo-text">
@@ -128,7 +171,7 @@ export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProp
 
       {/* Combined Read Dropdown */}
       <Box className="reads-dropdown">
-        {Object.values(readRecords).length > 0 ?
+        {Object.values(readPurposes).length > 0 ?
           (
             <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
               {currentReadId ? (
@@ -138,14 +181,14 @@ export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProp
                   onClick={(event) => setReadsMenuAnchor(event.currentTarget)}
                   className="nav-read-btn"
                   sx={{
-                    borderColor: readRecords[currentReadId]?.color || "#ccc",
+                    borderColor: readPurposes[currentReadId]?.color || "#ccc",
                     "&:hover": {
-                      borderColor: readRecords[currentReadId]?.color || "#ccc",
-                      backgroundColor: `${readRecords[currentReadId]?.color}20` || "#f5f5f5",
+                      borderColor: readPurposes[currentReadId]?.color || "#ccc",
+                      backgroundColor: `${readPurposes[currentReadId]?.color}20` || "#f5f5f5",
                     },
                   }}
                 >
-                  {readRecords[currentReadId]?.title}
+                  {readPurposes[currentReadId]?.title}
                 </Button>
               ) : (
                 <Button
@@ -154,10 +197,10 @@ export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProp
                   onClick={(event) => setReadsMenuAnchor(event.currentTarget)}
                   className="nav-read-btn"
                   sx={{
-                    borderColor: readRecords[currentReadId]?.color || "#ccc",
+                    borderColor: readPurposes[currentReadId]?.color || "#ccc",
                     "&:hover": {
-                      borderColor: readRecords[currentReadId]?.color || "#ccc",
-                      backgroundColor: `${readRecords[currentReadId]?.color}20` || "#f5f5f5",
+                      borderColor: readPurposes[currentReadId]?.color || "#ccc",
+                      backgroundColor: `${readPurposes[currentReadId]?.color}20` || "#f5f5f5",
                     }
                   }}
                 >
@@ -180,42 +223,42 @@ export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProp
                   minWidth: "200px"
                 }}
               >
-                {Object.values(readRecords).map((readRecord) => (
+                {Object.values(readPurposes).map((readPurpose) => (
                   <MenuItem
-                    key={readRecord.id}
-                    onClick={() => handleSwitchRead(readRecord.id)}
+                    key={readPurpose.id}
+                    onClick={() => handleSwitchRead(readPurpose.id)}
                     sx={{
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
                       gap: 2,
-                      backgroundColor: currentReadId === readRecord.id ? `${readRecord.color}20` : "transparent",
+                      backgroundColor: currentReadId === readPurpose.id ? `${readPurpose.color}20` : "transparent",
                       "&:hover": {
-                        backgroundColor: `${readRecord.color}30`,
+                        backgroundColor: `${readPurpose.color}30`,
                       }
                     }}
                   >
                     <ListItemIcon>
                       <Checkbox
-                        checked={displayedReads.includes(readRecord.id)}
-                        disabled={currentReadId === readRecord.id}
-                        onClick={(event) => handleToggleReadVisibility(readRecord.id, event)}
+                        checked={displayedReads.includes(readPurpose.id)}
+                        disabled={currentReadId === readPurpose.id}
+                        onClick={(event) => handleToggleReadVisibility(readPurpose.id, event)}
                         sx={{
-                          color: readRecord.color,
+                          color: readPurpose.color,
                           "&.Mui-checked": {
-                            color: readRecord.color,
+                            color: readPurpose.color,
                           },
                           "&.Mui-disabled": {
-                            color: readRecord.color,
+                            color: readPurpose.color,
                           }
                         }}
                       />
                     </ListItemIcon>
                     <ListItemText
-                      primary={readRecord.title}
+                      primary={readPurpose.title}
                       sx={{
                         "& .MuiListItemText-primary": {
-                          fontWeight: currentReadId === readRecord.id ? "bold" : "normal"
+                          fontWeight: currentReadId === readPurpose.id ? "bold" : "normal"
                         }
                       }}
                     />
@@ -223,7 +266,7 @@ export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProp
                       sx={{
                         width: 12,
                         height: 12,
-                        backgroundColor: readRecord.color,
+                        backgroundColor: readPurpose.color,
                         borderRadius: "50%",
                         ml: 1
                       }}
@@ -251,6 +294,14 @@ export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProp
       </Box>
 
       <Box sx={{ mx: 2, display: 'flex', gap: 1 }}>
+        <Tooltip title="Save all changes">
+          <IconButton 
+            onClick={handleSave}
+            disabled={!userData}
+          >
+            <Save />
+          </IconButton>
+        </Tooltip>
         <Tooltip title="Reading Analytics">
           <IconButton onClick={onAnalyticsClick}>
             <Analytics />
@@ -364,6 +415,20 @@ export default function NavBar({ onAnalyticsClick, onTimelineClick }: NavBarProp
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Save Loading Backdrop */}
+      <Backdrop
+        sx={{ 
+          color: '#fff', 
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          flexDirection: 'column',
+          gap: 2
+        }}
+        open={saving}
+      >
+        <CircularProgress color="inherit" />
+        <Typography variant="h6">Saving your work...</Typography>
+      </Backdrop>
     </div>
   );
 }

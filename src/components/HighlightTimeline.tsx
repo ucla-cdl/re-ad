@@ -2,12 +2,12 @@ import React, { useEffect } from 'react';
 import { usePaperContext } from '../contexts/PaperContext';
 import { Box, Typography, Button } from '@mui/material';
 import * as d3 from "d3";
-import { useReadingAnalyticsContext } from '../contexts/ReadingAnalyticsContext';
+import { UPDATE_INTERVAL, useReadingAnalyticsContext } from '../contexts/ReadingAnalyticsContext';
 
 export const HighlightTimeline: React.FC = () => {
-    const { pdfViewerRef, highlights, readRecords } = usePaperContext();
+    const { pdfViewerRef, highlights, readPurposes } = usePaperContext();
 
-    const { readingSessions, saveReadingState } = useReadingAnalyticsContext();
+    const { readSessions } = useReadingAnalyticsContext();
 
     useEffect(() => {
         drawTimelineGraph();
@@ -40,7 +40,7 @@ export const HighlightTimeline: React.FC = () => {
 
         // draw y axis title
         svg.append("text")
-            .text("Page Number")
+            .text("Paper Position (%)")
             .attr("transform", `translate(${margin.top}, ${margin.left + chartWidth / 2}) rotate(-90)`)
             .attr("text-anchor", "middle");
 
@@ -58,7 +58,7 @@ export const HighlightTimeline: React.FC = () => {
         const pdfPageHeight = pdfViewerRef.current.getPageView(0).height / pdfViewerRef.current.currentScale;
         const pdfTotalHeight = pdfViewerRef.current.pagesCount * pdfPageHeight;
 
-        const sessions = Object.values(readingSessions).sort((a, b) => a.startTime - b.startTime);
+        const sessions = Object.values(readSessions).sort((a, b) => a.startTime - b.startTime);
         const totalDuration = sessions.reduce((acc, session) => acc + session.duration, 0);
         
         const xScale = d3.scaleLinear()
@@ -76,16 +76,12 @@ export const HighlightTimeline: React.FC = () => {
             .call(xAxis);
 
         const yScale = d3.scaleLinear()
-            .domain([0, pdfTotalHeight])
+            .domain([0, 100])
             .range([0, chartHeight]);
 
         const yAxis = d3.axisLeft(yScale)
             .tickSizeOuter(0)
-            .tickFormat((d) => {
-                const position = d as number;
-                const pageNumber = Math.floor(position / pdfPageHeight);
-                return `${pageNumber}`;
-            });
+            .tickFormat((d) => `${d}%`);
 
         chart.append("g")
             .call(yAxis);
@@ -96,23 +92,28 @@ export const HighlightTimeline: React.FC = () => {
 
         let durationIntercept = 0;
         sessions.forEach(session => {
-            const scrollSequence = session.scrollSequence.map(scroll => [scroll[0] - session.startTime + durationIntercept, scroll[1]]) as [number, number][];
+            const scrollSequence = session.scrollSequence.map((scrollPosition, index) => {
+                const timestamp = index * UPDATE_INTERVAL + durationIntercept;
+                const normalizedY = (scrollPosition / pdfTotalHeight) * 100;
+                return [timestamp, normalizedY];
+            }) as [number, number][];
 
             chart.append("path")
                 .attr("d", line(scrollSequence))
                 .attr("fill", "none")
-                .attr("stroke", readRecords[session.readId].color)
+                .attr("stroke", readPurposes[session.readPurposeId].color)
                 .attr("stroke-width", 3);
             
-            highlights.filter(highlight => highlight.sessionId === session.sessionId).forEach(highlight => {
+            highlights.filter(highlight => highlight.sessionId === session.id).forEach(highlight => {
                 const relativeTime = highlight.timestamp - session.startTime + durationIntercept;
-                const yPosition = (highlight.position.boundingRect.pageNumber - 1) * pdfPageHeight + highlight.position.boundingRect.y1;
+                const absoluteY = (highlight.position.boundingRect.pageNumber - 1) * pdfPageHeight + highlight.position.boundingRect.y1;
+                const normalizedY = (absoluteY / pdfTotalHeight) * 100;
 
                 chart.append("circle")
                     .attr("cx", xScale(relativeTime))
-                    .attr("cy", yScale(yPosition))
+                    .attr("cy", yScale(normalizedY))
                     .attr("r", 3)
-                    .attr("fill", readRecords[highlight.readRecordId].color)
+                    .attr("fill", readPurposes[highlight.readPurposeId].color)
                     .attr("stroke", "black")
                     .attr("stroke-width", 0.5);
             });
@@ -128,8 +129,6 @@ export const HighlightTimeline: React.FC = () => {
             </Typography>
 
             <Box id="highlight-timeline-container" sx={{ width: '100%', height: '60%' }} />
-
-            <Button onClick={saveReadingState}>Save Reading State</Button>
         </Box>
     );
 }; 

@@ -2,10 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { initializeApp } from "firebase/app";
 import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
 import { getFirestore, collection, doc, setDoc, getDoc, getDocs, where, query } from "firebase/firestore";
-import { ReadHighlight } from '../components/paper-components/HighlightContainer';
-import { Node, Edge } from '@xyflow/react';
-import { ReadingSession } from './ReadingAnalyticsContext';
-import { ReadRecord } from "./PaperContext";
+import { Content, Highlight } from "react-pdf-highlighter-extended";
 
 export enum UserRole {
     ADMIN = 'admin',
@@ -34,17 +31,43 @@ export type PaperFile = {
     file: File;
 }
 
-export type ReadingState = {
+export type ReadPurpose = {
     id: string;
     userId: string;
     paperId: string;
-    state: {
-        highlights: ReadHighlight[];
-        readRecords: Record<string, ReadRecord>;
-        nodes: Node[];
-        edges: Edge[];
-        readingSessions: Record<string, ReadingSession>;
-    };
+    title: string;
+    color: string;
+    description?: string;
+};
+
+export type ReadHighlight = Highlight & {
+    id: string;
+    userId: string;
+    paperId: string;
+    readPurposeId: string;
+    sessionId: string;
+    content: Content;
+    timestamp: number;
+    normalizedPositionY: number;
+};
+
+// Atomic logging unit of user's reading process
+export type ReadSession = {
+    id: string;
+    userId: string;
+    paperId: string;
+    readPurposeId: string;
+    startTime: number;
+    duration: number;
+    scrollSequence: number[];
+}
+
+// Canvas is a collection of papers, read sessions, and react flow json => This keeps track of how users read paper(s)
+export type Canvas = {
+    id: string;
+    userId: string;
+    paperId: string;
+    reactFlowJson: string; // react flow json string (nodes, edges, viewport)
 }
 
 type StorageContextData = {
@@ -62,9 +85,34 @@ type StorageContextData = {
     addPaperData: (paperData: PaperData) => Promise<void>;
     getPaperFile: (paperId: string) => Promise<string>;
     addPaperFile: (paperId: string, file: File) => Promise<void>;
-    getReadingStateData: (userId: string, paperId: string) => Promise<ReadingState | null>;
-    getMultipleReadingStateData: (userIds: string[], paperId: string) => Promise<(ReadingState)[]>;
-    updateReadingState: (readingStateData: ReadingState) => Promise<void>;
+    
+    // Canvas Functions
+    getCanvasByPaperId: (paperId: string) => Promise<Canvas | null>;
+    createCanvas: (canvasData: Canvas) => Promise<string>;
+    updateCanvas: (canvasId: string, updates: Partial<Canvas>) => Promise<void>;
+
+    // Highlight Functions
+    getHighlightsByUser: (userId: string) => Promise<ReadHighlight[]>;
+    getHighlightsByPaper: (paperId: string) => Promise<ReadHighlight[]>;
+    getHighlightsByUsersAndPapers: (userIds: string[], paperIds: string[]) => Promise<Record<string, ReadHighlight[]>>;
+    addHighlight: (highlight: ReadHighlight) => Promise<string>;
+
+    // Purpose Functions
+    getPurposesByUser: (userId: string) => Promise<ReadPurpose[]>;
+    getPurposesByPaper: (paperId: string) => Promise<ReadPurpose[]>;
+    getPurposesByUserAndPaper: (userId: string, paperId: string) => Promise<ReadPurpose[]>;
+    addPurpose: (purpose: ReadPurpose) => Promise<string>;
+
+    // Session Functions
+    getSessionsByUser: (userId: string, paperIds?: string[]) => Promise<ReadSession[]>;
+    getSessionsByPaper: (paperId: string, userIds?: string[]) => Promise<ReadSession[]>;
+    getSessionsByUsersAndPapers: (userIds: string[], paperIds: string[]) => Promise<Record<string, ReadSession[]>>;
+    addSession: (session: ReadSession) => Promise<string>;
+
+    // Batch Operations
+    batchAddHighlights: (highlights: ReadHighlight[]) => Promise<string[]>;
+    batchAddPurposes: (purposes: ReadPurpose[]) => Promise<string[]>;
+    batchAddSessions: (sessions: ReadSession[]) => Promise<string[]>;
 }
 
 const firebaseConfig = {
@@ -84,7 +132,10 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
     const db = getFirestore(app);
     const usersCollectionRef = collection(db, 'users');
     const papersDataCollectionRef = collection(db, 'papersData');
-    const readingStatesCollectionRef = collection(db, 'readingStates');
+    const canvasesCollectionRef = collection(db, 'canvases');
+    const highlightsCollectionRef = collection(db, 'highlights');
+    const purposesCollectionRef = collection(db, 'readPurposes');
+    const sessionsCollectionRef = collection(db, 'readSessions');
 
     const storage = getStorage(app);
 
@@ -210,47 +261,156 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
         return url;
     }
 
-    // get reading state data
-    const getReadingStateData = async (userId: string, paperId: string) => {
-        const readingStateId = `${userId}-${paperId}`;
-        const readingStateRef = doc(readingStatesCollectionRef, readingStateId);
-        const readingStateDoc = await getDoc(readingStateRef);
-        const data = readingStateDoc.data();
-        if (!data) return null;
-
-        return {
-            ...data,
-            state: JSON.parse(data?.state)
-        } as ReadingState;
+    // Canvas Functions
+    const getCanvasByPaperId = async (paperId: string): Promise<Canvas | null> => {
+        const q = query(canvasesCollectionRef, where('paperId', '==', paperId));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => doc.data() as Canvas)[0];
     }
 
-    const getMultipleReadingStateData = async (userIds: string[], paperId: string) => {
-        const q = query(readingStatesCollectionRef, where('userId', 'in', userIds), where('paperId', '==', paperId));
-        const readingStateDocs = await getDocs(q);
-        const readingStateData = readingStateDocs.docs.map((doc) => {
-            const data = doc.data();
-            if (!data) return null;
+    const createCanvas = async (canvasData: Canvas): Promise<string> => {
+        await setDoc(doc(canvasesCollectionRef, canvasData.id), canvasData);
+        return canvasData.id;
+    }
 
-            return {
-                ...data,
-                state: JSON.parse(data?.state)
-            } as ReadingState;
+    const updateCanvas = async (canvasId: string, updates: Partial<Canvas>): Promise<void> => {
+        const canvasRef = doc(canvasesCollectionRef, canvasId);
+        await setDoc(canvasRef, updates, { merge: true });
+    }
+
+    // Highlight Functions
+    const getHighlightsByUser = async (userId: string): Promise<ReadHighlight[]> => {
+        const q = query(highlightsCollectionRef, where('userId', '==', userId));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => doc.data() as ReadHighlight);
+    }
+
+    const getHighlightsByPaper = async (paperId: string): Promise<ReadHighlight[]> => {
+        const q = query(highlightsCollectionRef, where('paperId', '==', paperId));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => doc.data() as ReadHighlight);
+    }
+
+    const getHighlightsByUsersAndPapers = async (userIds: string[], paperIds: string[]): Promise<Record<string, ReadHighlight[]>> => {
+        const q = query(highlightsCollectionRef, where('userId', 'in', userIds), where('paperId', 'in', paperIds));
+        const querySnapshot = await getDocs(q);
+        const highlights = querySnapshot.docs.map(doc => doc.data() as ReadHighlight);
+        const grouped: Record<string, ReadHighlight[]> = {};
+        highlights.forEach(highlight => {
+            const key = `${highlight.userId}_${highlight.paperId}`;
+            if (!grouped[key]) {
+                grouped[key] = [];
+            }
+            grouped[key].push(highlight);
         });
-
-        return readingStateData.filter((data) => data !== null);
+        return grouped;
     }
 
-    // add/update reading state data
-    const updateReadingState = async (readingStateData: ReadingState) => {
-        try {
-            await setDoc(doc(readingStatesCollectionRef, readingStateData.id), {
-                ...readingStateData,
-                state: JSON.stringify(readingStateData.state)
-            });
-            console.log('Reading state added with ID:', readingStateData.id);
-        } catch (error) {
-            console.error('Error adding reading state:', error);
+    const addHighlight = async (highlight: ReadHighlight): Promise<string> => {
+        await setDoc(doc(highlightsCollectionRef, highlight.id), highlight);
+        return highlight.id;
+    }
+
+    // Purpose Functions
+    const getPurposesByUser = async (userId: string): Promise<ReadPurpose[]> => {
+        const q = query(purposesCollectionRef, where('userId', '==', userId));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => doc.data() as ReadPurpose);
+    }
+
+    const getPurposesByPaper = async (paperId: string): Promise<ReadPurpose[]> => {
+        const q = query(purposesCollectionRef, where('paperId', '==', paperId));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => doc.data() as ReadPurpose);
+    }
+
+    const getPurposesByUserAndPaper = async (userId: string, paperId: string): Promise<ReadPurpose[]> => {
+        const q = query(purposesCollectionRef, where('userId', '==', userId), where('paperId', '==', paperId));
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => doc.data() as ReadPurpose);
+    }
+
+    const addPurpose = async (purpose: ReadPurpose): Promise<string> => {
+        await setDoc(doc(purposesCollectionRef, purpose.id), purpose);
+        return purpose.id;
+    }
+
+    // Session Functions
+    const getSessionsByUser = async (userId: string, paperIds?: string[]): Promise<ReadSession[]> => {
+        let q;
+        if (paperIds && paperIds.length > 0) {
+            q = query(sessionsCollectionRef, where('userId', '==', userId), where('paperId', 'in', paperIds));
+        } else {
+            q = query(sessionsCollectionRef, where('userId', '==', userId));
         }
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => doc.data() as ReadSession);
+    }
+
+    const getSessionsByPaper = async (paperId: string, userIds?: string[]): Promise<ReadSession[]> => {
+        let q;
+        if (userIds && userIds.length > 0) {
+            q = query(sessionsCollectionRef, where('paperId', '==', paperId), where('userId', 'in', userIds));
+        } else {
+            q = query(sessionsCollectionRef, where('paperId', '==', paperId));
+        }
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => doc.data() as ReadSession);
+    }
+
+    // Returns a dictionary grouped by (paperId, userId) pair: { [paperId_userId]: ReadSession[] }
+    const getSessionsByUsersAndPapers = async (
+        userIds: string[],
+        paperIds: string[]
+    ): Promise<Record<string, ReadSession[]>> => {
+        const q = query(
+            sessionsCollectionRef,
+            where('userId', 'in', userIds),
+            where('paperId', 'in', paperIds)
+        );
+        const querySnapshot = await getDocs(q);
+        const sessions = querySnapshot.docs.map(doc => doc.data() as ReadSession);
+
+        // Group by (paperId, userId) pair
+        const grouped: Record<string, ReadSession[]> = {};
+        sessions.forEach(session => {
+            const key = `${session.userId}_${session.paperId}`;
+            if (!grouped[key]) {
+                grouped[key] = [];
+            }
+            grouped[key].push(session);
+        });
+        return grouped;
+    }
+
+    const addSession = async (session: ReadSession): Promise<string> => {
+        await setDoc(doc(sessionsCollectionRef, session.id), session);
+        return session.id;
+    }
+
+    // Batch Operations
+    const batchAddHighlights = async (highlights: ReadHighlight[]): Promise<string[]> => {
+        const promises = highlights.map(highlight => 
+            setDoc(doc(highlightsCollectionRef, highlight.id), highlight)
+        );
+        await Promise.all(promises);
+        return highlights.map(h => h.id);
+    }
+
+    const batchAddPurposes = async (purposes: ReadPurpose[]): Promise<string[]> => {
+        const promises = purposes.map(purpose => 
+            setDoc(doc(purposesCollectionRef, purpose.id), purpose)
+        );
+        await Promise.all(promises);
+        return purposes.map(p => p.id);
+    }
+
+    const batchAddSessions = async (sessions: ReadSession[]): Promise<string[]> => {
+        const promises = sessions.map(session => 
+            setDoc(doc(sessionsCollectionRef, session.id), session)
+        );
+        await Promise.all(promises);
+        return sessions.map(s => s.id);
     }
 
     return (
@@ -270,9 +430,24 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
                 addPaperData,
                 getPaperFile,
                 addPaperFile,
-                getReadingStateData,
-                getMultipleReadingStateData,
-                updateReadingState,
+                getCanvasByPaperId,
+                createCanvas,
+                updateCanvas,
+                getHighlightsByUser,
+                getHighlightsByPaper,
+                getHighlightsByUsersAndPapers,
+                addHighlight,
+                getPurposesByUser,
+                getPurposesByPaper,
+                getPurposesByUserAndPaper,
+                addPurpose,
+                getSessionsByUser,
+                getSessionsByPaper,
+                getSessionsByUsersAndPapers,
+                addSession,
+                batchAddHighlights,
+                batchAddPurposes,
+                batchAddSessions,
             }}
         >
             {children}

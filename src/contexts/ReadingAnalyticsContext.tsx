@@ -1,50 +1,27 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { usePaperContext } from './PaperContext';
-import { ReadHighlight } from '../components/paper-components/HighlightContainer';
 import { v4 as uuidv4 } from 'uuid';
-import { ReadingState, useStorageContext } from './StorageContext';
-
-/**
- * Reading Analytics:
- * - Reading Session: a single session of reading a paper within one reading goal
- * 
- * analytics:
- * - reading sessions (dictionary of categoryId to reading sessions)
- * - reading session:
- * -- categoryId: the category of the reading session
- * -- startTime: the start time of the reading session
- * -- endTime?: the end time of the reading session
- * -- scrollSequence: a list of (timestamp, scroll position) pairs
- */
-
-// Types for our analytics
-export type ReadingSession = {
-  sessionId: string;
-  readId: string;
-  startTime: number;
-  duration: number;
-  scrollSequence: [number, number][];
-}
+import { ReadSession, ReadHighlight, useStorageContext } from './StorageContext';
 
 type ReadingAnalyticsContextData = {
-  readingSessions: Record<string, ReadingSession>;
-  saveReadingState: () => void;
+  readSessions: Record<string, ReadSession>;
 }
+
+export const UPDATE_INTERVAL = 500;
 
 const ReadingAnalyticsContext = createContext<ReadingAnalyticsContextData | undefined>(undefined);
 
 export const ReadingAnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { userData, updateReadingState, getReadingStateData } = useStorageContext();
-  const { currentReadId, highlights, pdfViewerRef, paperId, nodes, edges, readRecords, setCurrentSessionId } = usePaperContext();
+  const { userData, getSessionsByUsersAndPapers } = useStorageContext();
+  const { currentReadId, highlights, pdfViewerRef, paperId, setCurrentSessionId } = usePaperContext();
   const highlightsRef = useRef<ReadHighlight[]>(highlights);
 
   useEffect(() => {
     highlightsRef.current = highlights;
   }, [highlights]);
 
-  const [readingSessions, setReadingSessions] = useState<Record<string, ReadingSession>>({});
+  const [readSessions, setReadSessions] = useState<Record<string, ReadSession>>({});
 
-  const UPDATE_INTERVAL = 500;
   const updateIntervalRef = useRef<any>(null);
   const currentSessionIdRef = useRef<string | null>(null);
 
@@ -53,18 +30,20 @@ export const ReadingAnalyticsProvider: React.FC<{ children: React.ReactNode }> =
   }, [userData, paperId]);
 
   const resetReadingAnalyticsContext = () => {
-    setReadingSessions({});
+    setReadSessions({});
     updateIntervalRef.current = null;
     currentSessionIdRef.current = null;
   }
 
   const loadReadingState = async () => {
     if (userData && paperId) {
-      console.log("load reading analytics context", userData, paperId);
-      const readingStateData = await getReadingStateData(userData.id, paperId);
-      
-      if (readingStateData) {
-        setReadingSessions(readingStateData.state.readingSessions);
+      const sessionsByUserAndPaper = await getSessionsByUsersAndPapers([userData.id], [paperId]);
+      if (sessionsByUserAndPaper) {
+        const sessions = sessionsByUserAndPaper[`${userData.id}_${paperId}`] || [];
+        setReadSessions(sessions.reduce((acc, session) => {
+          acc[session.id] = session;
+          return acc;
+        }, {} as Record<string, ReadSession>));
       } else {
         resetReadingAnalyticsContext();
       }
@@ -80,15 +59,19 @@ export const ReadingAnalyticsProvider: React.FC<{ children: React.ReactNode }> =
 
     const startTime = Date.now();
 
-    setReadingSessions(prev => ({
+    const scale = pdfViewerRef.current?.currentScale || 1;
+    const normalizedScrollPosition = pdfViewerRef.current?.scroll.lastY / scale || 0;
+
+    setReadSessions(prev => ({
       ...prev,
       [sessionId]: {
-        sessionId: sessionId,
-        readId: readId,
+        id: sessionId,
+        userId: userData!.id,
+        paperId: paperId!,
+        readPurposeId: readId,
         startTime: startTime,
         duration: 0,
-        // TODO: scroll position need to be stored as a normalized value, not depend on the scale of the pdf viewer
-        scrollSequence: [[startTime, pdfViewerRef.current?.scroll.lastY || 0]],
+        scrollSequence: [normalizedScrollPosition],
       },
     }));
 
@@ -105,16 +88,13 @@ export const ReadingAnalyticsProvider: React.FC<{ children: React.ReactNode }> =
     const timestamp = Date.now();
     const focusCenter = pdfViewerRef.current.container.clientHeight / 2;
     const normalizedScrollPosition = (pdfViewerRef.current.scroll.lastY + focusCenter) / pdfViewerRef.current.currentScale;
-    
-    setReadingSessions(prev => ({
+
+    setReadSessions(prev => ({
       ...prev,
       [sessionId]: {
         ...prev[sessionId],
         duration: timestamp - prev[sessionId].startTime,
-        scrollSequence: [
-          ...prev[sessionId].scrollSequence, 
-          [timestamp, normalizedScrollPosition || 0]
-        ],
+        scrollSequence: [...prev[sessionId].scrollSequence, normalizedScrollPosition || 0],
       },
     }));
   }
@@ -155,26 +135,6 @@ export const ReadingAnalyticsProvider: React.FC<{ children: React.ReactNode }> =
     }, UPDATE_INTERVAL);
   };
 
-  // Save the reading state to the database
-  const saveReadingState = () => {
-    if (!userData || !paperId || !currentReadId) return;
-    
-    const readingStateData: ReadingState = {
-      id: `${userData.id}-${paperId}`,
-      userId: userData.id,
-      paperId: paperId,
-      state: {
-        highlights: highlightsRef.current,
-        readRecords: readRecords,
-        nodes: nodes,
-        edges: edges,
-        readingSessions: readingSessions,
-      }
-    }
-
-    updateReadingState(readingStateData);
-  }
-
   // Handle page visibility changes
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -199,8 +159,7 @@ export const ReadingAnalyticsProvider: React.FC<{ children: React.ReactNode }> =
   return (
     <ReadingAnalyticsContext.Provider
       value={{
-        readingSessions,
-        saveReadingState,
+        readSessions: readSessions,
       }}
     >
       {children}

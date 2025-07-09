@@ -19,13 +19,13 @@ function App() {
       <TourProvider>
         <PaperContextProvider>
           <ReadingAnalyticsProvider>
-            <HashRouter>
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/papers" element={<PapersHub />} />
-                <Route path="/paper-reader" element={<PaperReader />} />
-              </Routes>
-            </HashRouter>
+              <HashRouter>
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/papers" element={<PapersHub />} />
+                  <Route path="/paper-reader" element={<PaperReader />} />
+                </Routes>
+              </HashRouter>
           </ReadingAnalyticsProvider>
         </PaperContextProvider>
       </TourProvider>

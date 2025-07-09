@@ -1,13 +1,13 @@
-import React, { createContext, useState } from "react";
+import React, { createContext, useContext, useState } from "react";
 import { Step } from "react-joyride";
 
 type TourContextType = {
   runTour: boolean;
-  setRunTour: React.Dispatch<React.SetStateAction<boolean>>;
+  setRunTour: (runTour: boolean) => void;
   steps: Step[];
-  setSteps: React.Dispatch<React.SetStateAction<Step[]>>;
+  setSteps: (steps: Step[]) => void;
   stepIndex: number;
-  setStepIndex: React.Dispatch<React.SetStateAction<number>>;
+  setStepIndex: (stepIndex: number) => void;
 }
 
 const STEPS: Step[] = [
@@ -44,7 +44,7 @@ const STEPS: Step[] = [
   },
 ];
 
-export const TourContext = createContext<TourContextType | null>(null);
+export const TourContext = createContext<TourContextType | undefined>(undefined);
 
 export const TourProvider = ({ children }: { children: React.ReactNode }) => {
   const [runTour, setRunTour] = useState<boolean>(false);
@@ -64,4 +64,13 @@ export const TourProvider = ({ children }: { children: React.ReactNode }) => {
       {children}
     </TourContext.Provider>
   );
+};
+
+export const useTourContext = () => {
+  const context = useContext(TourContext);
+  if (context === undefined) {
+    throw new Error('useTourContext must be used within a TourContextProvider');
+  }
+
+  return context;
 };

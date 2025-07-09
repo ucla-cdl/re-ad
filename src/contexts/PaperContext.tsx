@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { GhostHighlight } from "react-pdf-highlighter-extended";
 import {
   type Node,
@@ -11,12 +11,10 @@ import {
   Connection,
   MarkerType,
 } from "@xyflow/react";
-import { ReadHighlight } from "../components/paper-components/HighlightContainer";
-import { NodeData } from "../components/node-components/NodeEditor";
-import { TourContext } from "./TourContext";
+import { useTourContext } from "./TourContext";
 import { PDFViewer } from "pdfjs-dist/types/web/pdf_viewer";
 import { v4 as uuidv4 } from 'uuid';
-import { useStorageContext } from "./StorageContext";
+import { ReadHighlight, ReadPurpose, useStorageContext } from "./StorageContext";
 import { GoogleGenAI, Type } from "@google/genai";
 import { READING_GOAL_GENERATE_PROMPT, READING_SUGGESTION_SYSTEM_PROMPT } from "../utils/prompts";
 
@@ -26,7 +24,7 @@ type PaperContextData = {
   setPaperId: (paperId: string | null) => void;
   paperUrl: string | null;
   setPaperUrl: (paperUrl: string | null) => void;
-  generateReadingGoals: () => Promise<ReadingSuggestion>;
+  generateReadingGoals: () => Promise<ReadSuggestion>;
   highlights: Array<ReadHighlight>;
   addHighlight: (highlight: GhostHighlight) => void;
   updateNodeData: (nodeId: string, data: Partial<NodeData>) => void;
@@ -48,13 +46,13 @@ type PaperContextData = {
   displayEdgeTypes: Array<string>;
   setDisplayEdgeTypes: (displayEdgeTypes: Array<string>) => void;
   // Shared
-  readRecords: Record<string, ReadRecord>;
+  readPurposes: Record<string, ReadPurpose>;
   createRead: (title: string, color: string) => void;
   currentReadId: string;
   setCurrentReadId: (readId: string) => void;
   currentSessionId: string;
   setCurrentSessionId: (sessionId: string) => void;
-  setReadRecords: (readRecords: Record<string, ReadRecord>) => void;
+  setReadPurposes: (readPurposes: Record<string, ReadPurpose>) => void;
   displayedReads: Array<string>;
   hideRead: (readId: string) => void;
   showRead: (readId: string) => void;
@@ -66,21 +64,22 @@ type PaperContextData = {
 
 const PaperContext = createContext<PaperContextData | undefined>(undefined);
 
-export type ReadRecord = {
-  id: string;
-  title: string;
-  color: string;
-  description?: string;
-};
-
-export type ReadingSuggestion = {
+export type ReadSuggestion = {
   readingProgress: string;
-  readingGoals: ReadingGoal[];
+  readingGoals: ReadGoal[];
 }
 
-export type ReadingGoal = {
+export type ReadGoal = {
   goalName: string;
   goalDescription: string;
+}
+
+export type NodeData = {
+  label: string;
+  content: string;
+  summary: string;
+  notes: string;
+  type: string;
 }
 
 export const NODE_TYPES = {
@@ -97,13 +96,8 @@ export const EDGE_TYPES = {
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 export const PaperContextProvider = ({ children }: { children: React.ReactNode }) => {
-  const tourContext = useContext(TourContext);
-  if (!tourContext) {
-    throw new Error("TourContext not found");
-  }
-  // const { setRunTour } = tourContext;
-
-  const { userData, getReadingStateData } = useStorageContext();
+  // const { setRunTour } = useTourContext();
+  const { userData, getHighlightsByUsersAndPapers, getPurposesByUserAndPaper, getCanvasByPaperId } = useStorageContext();
 
   // Paper
   const [paperId, setPaperId] = useState<string | null>(null);
@@ -113,7 +107,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   const pdfViewerRef = useRef<PDFViewer | null>(null);
 
   // Shared
-  const [readRecords, setReadRecords] = useState<Record<string, ReadRecord>>({});
+  const [readPurposes, setReadPurposes] = useState<Record<string, ReadPurpose>>({});
   const [currentReadId, setCurrentReadId] = useState("");
   const [currentSessionId, setCurrentSessionId] = useState("");
   const [selectedHighlightIds, setSelectedHighlightIds] = useState<Array<string>>([]);
@@ -143,7 +137,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
 
   const resetPaperContext = () => {
     setHighlights([]);
-    setReadRecords({});
+    setReadPurposes({});
     setNodes([]);
     setEdges([]);
     setDisplayedReads([]);
@@ -152,16 +146,28 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
 
   const loadPaperContext = async () => {
     if (userData && paperId) {
-      console.log("load paper context", userData, paperId);
-      const readingStateData = await getReadingStateData(userData.id, paperId);
+      const highlightsByUserAndPaper = await getHighlightsByUsersAndPapers([userData.id], [paperId]);
+      const highlights = highlightsByUserAndPaper[`${userData.id}_${paperId}`] || [];
 
-      if (readingStateData) {
-        // Load stored data
-        setHighlights(readingStateData.state.highlights);
-        setReadRecords(readingStateData.state.readRecords);
-        setNodes(readingStateData.state.nodes);
-        setEdges(readingStateData.state.edges);
-        setDisplayedReads(Object.keys(readingStateData.state.readRecords));
+      const purposes = await getPurposesByUserAndPaper(userData.id, paperId);
+      const purposesRecord = purposes.reduce((acc, purpose) => {
+        acc[purpose.id] = purpose;
+        return acc;
+      }, {} as Record<string, ReadPurpose>);
+      const canvas = await getCanvasByPaperId(paperId);
+      
+      if (highlights && purposes && canvas) {
+        // Load stored paper data
+        setHighlights(highlights);
+        setReadPurposes(purposesRecord);
+        setDisplayedReads(Object.keys(purposesRecord));
+
+        // Load stored canvas data
+        const reactFlowJson = JSON.parse(canvas.reactFlowJson);
+        console.log("reactFlowJson", reactFlowJson);
+        setNodes(reactFlowJson.nodes as Node[]);
+        setEdges(reactFlowJson.edges as Edge[]);
+
         resetControlStates();
       } else {
         // No reading state data exists - start with fresh state
@@ -182,20 +188,20 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   }, [displayEdgeTypes]);
 
   const generateReadingGoals = async () => {
-    if (!pdfViewerRef.current) return {} as ReadingSuggestion;
+    if (!pdfViewerRef.current) return {} as ReadSuggestion;
 
     const paperContent = await pdfViewerRef.current.getAllText();
 
-    const completedGoals = Object.values(readRecords).map((r) => r.title + ": " + r.description).join("\n");
+    const completedGoals = Object.values(readPurposes).map((r) => r.title + ": " + r.description).join("\n");
     const prompt = READING_GOAL_GENERATE_PROMPT + "\n\n" + completedGoals + "\n\n" + "Below is the full text of the paper:\n" + paperContent;
 
     const response = await query_gemini(prompt);
 
     if (response) {
-      return JSON.parse(response) as ReadingSuggestion;
+      return JSON.parse(response) as ReadSuggestion;
     }
 
-    return {} as ReadingSuggestion;
+    return {} as ReadSuggestion;
   }
 
   const processHighlightText = (highlight: GhostHighlight) => {
@@ -228,7 +234,9 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
       {
         ...highlight,
         id: id,
-        readRecordId: currentReadId,
+        userId: userData!.id,
+        paperId: paperId!,
+        readPurposeId: currentReadId,
         sessionId: currentSessionId,
         timestamp: Date.now(),
         normalizedPositionY: normalizedPositionY,
@@ -244,21 +252,18 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         type: NODE_TYPES.HIGHLIGHT,
         data: {
           id: id,
-          readRecordId: currentReadId,
+          readPurposeId: currentReadId,
           ...processHighlightText(highlight),
-          // user notes
-          summary: "",
-          references: [],
           notes: "",
         },
         position: {
           x: isFirstHighlight
-            ? Object.keys(readRecords).findIndex((id) => id === currentReadId) * NODE_OFFSET_X
+            ? Object.keys(readPurposes).findIndex((id) => id === currentReadId) * NODE_OFFSET_X
             : nodes[nodes.length - 1].position.x,
           y: isFirstHighlight ? NODE_OFFSET_Y : nodes[nodes.length - 1].position.y + NODE_OFFSET_Y,
         },
         style: {
-          backgroundColor: readRecords[currentReadId].color,
+          backgroundColor: readPurposes[currentReadId].color,
         }
       },
     ]);
@@ -335,11 +340,9 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
       type: NODE_TYPES.THEME,
       data: {
         id: newGroupNodeId,
-        readRecordId: currentReadId,
+        readPurposeId: currentReadId,
         label: label || `Group (${childNodeIds.length} nodes)`,
         // children: nodeIds,
-        summary: "",
-        references: [],
         notes: "",
       },
       position: {
@@ -348,7 +351,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         y: selectedNodes.reduce((sum, node) => sum + node.position.y, 0) / selectedNodes.length, // Position slightly above
       },
       style: {
-        backgroundColor: readRecords[currentReadId].color,
+        backgroundColor: readPurposes[currentReadId].color,
       }
     };
 
@@ -411,10 +414,18 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   };
 
   const createRead = (title: string, color: string) => {
+    if (!userData || !paperId) return;
+
     const newReadId = uuidv4();
-    setReadRecords((prevReadRecords) => ({
+    setReadPurposes((prevReadRecords) => ({
       ...prevReadRecords,
-      [newReadId]: { id: newReadId, title, color },
+      [newReadId]: {
+        id: newReadId,
+        paperId: paperId,
+        userId: userData.id,
+        title,
+        color,
+      },
     }));
     setCurrentReadId(newReadId);
     showRead(newReadId);
@@ -501,14 +512,14 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         displayEdgeTypes,
         setDisplayEdgeTypes,
         // Shared
-        readRecords,
+        readPurposes,
         createRead,
         currentReadId,
         setCurrentReadId,
         currentSessionId,
         setCurrentSessionId,
         displayedReads,
-        setReadRecords,
+        setReadPurposes,
         hideRead,
         showRead,
         selectedHighlightIds,

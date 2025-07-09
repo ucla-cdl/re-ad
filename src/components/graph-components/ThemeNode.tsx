@@ -4,14 +4,14 @@ import { usePaperContext } from "../../contexts/PaperContext";
 import "../../styles/GraphNode.css";
 
 export default function ThemeNode({ data }: NodeProps<Node>) {
-  const { id, readRecordId, label } = data as {
+  const { id, readPurposeId, label } = data as {
     id: string;
-    readRecordId: string;
+    readPurposeId: string;
     label: string;
   };
-  const { readRecords, displayedReads, selectedHighlightIds } = usePaperContext();
-  const { color } = readRecords[readRecordId] || { color: "#e6e6e6" };
-  const isDisplayed = displayedReads.includes(readRecordId);
+  const { readPurposes, displayedReads, selectedHighlightIds } = usePaperContext();
+  const { color } = readPurposes[readPurposeId] || { color: "#e6e6e6" };
+  const isDisplayed = displayedReads.includes(readPurposeId);
 
   const connection = useConnection();
   const isSelected = selectedHighlightIds.includes(id);

@@ -28,131 +28,139 @@ type ReadStats = {
 }
 
 function ReadingAnalyticsPanel() {
-  const { highlights, readRecords } = usePaperContext();
-  const { readingSessions } = useReadingAnalyticsContext();
+  const { highlights, readPurposes } = usePaperContext();
+  const { readSessions } = useReadingAnalyticsContext();
 
   const [totalTime, setTotalTime] = useState(0);
   const [readStats, setReadStats] = useState<ReadStats[]>([]);
 
   useEffect(() => {
-    setTotalTime(Object.values(readingSessions).reduce((acc, session) => acc + session.duration, 0));
+    setTotalTime(Object.values(readSessions).reduce((acc, session) => acc + session.duration, 0));
     processReadStats();
-  }, [readingSessions]);
+  }, [readSessions, highlights, readPurposes]);
 
   const processReadStats = () => {
-    // Group by categoryId and sum the durations
-    const categoryDurations = Object.values(readingSessions).reduce((acc, session) => {
-      acc[session.readId] = (acc[session.readId] || 0) + session.duration;
+    // Group by readRecordId and sum the durations
+    const purposeDurations = Object.values(readSessions).reduce((acc, session) => {
+      acc[session.readPurposeId] = (acc[session.readPurposeId] || 0) + session.duration;
       return acc;
     }, {} as Record<string, number>);
 
-    const readStats = Object.entries(categoryDurations).map(([readId, duration]) => {
-      const lastSession = Object.values(readingSessions).filter(session => session?.readId === readId).sort((a, b) => b.startTime - a.startTime)[0];
+      const readStats = Object.entries(purposeDurations).map(([readPurposeId, duration]) => {
+      const lastSession = Object.values(readSessions)
+        .filter(session => session?.readPurposeId === readPurposeId)
+        .sort((a, b) => b.startTime - a.startTime)[0];
       const lastReadTime = lastSession ? lastSession.startTime + lastSession.duration : 0;
 
+      const purpose = readPurposes[readPurposeId];
+      if (!purpose) {
+        return null; // Skip if purpose doesn't exist
+      }
+
       return ({
-        readId: readId,
-        readTitle: readRecords[readId].title,
+        readId: readPurposeId,
+        readTitle: purpose.title,
         duration: duration,
-        highlightCount: highlights.filter(highlight => highlight.readRecordId === readId).length,
-        imageHighlightCount: highlights.filter(highlight => highlight.readRecordId === readId && highlight.type === 'area').length,
-        textHighlightCount: highlights.filter(highlight => highlight.readRecordId === readId && highlight.type === 'text').length,
+        highlightCount: highlights.filter(highlight => highlight.readPurposeId === readPurposeId).length,
+          imageHighlightCount: highlights.filter(highlight => highlight.readPurposeId === readPurposeId && highlight.type === 'area').length,
+        textHighlightCount: highlights.filter(highlight => highlight.readPurposeId === readPurposeId && highlight.type === 'text').length,
         lastReadTime: lastReadTime
-      })
-    });
+      });
+    }).filter(stat => stat !== null) as ReadStats[];
 
     readStats.sort((a, b) => b.duration - a.duration);
     setReadStats(readStats);
   }
 
   return (
-    <Box sx={{ p: 2.5, bgcolor: 'white', borderRadius: 1, boxShadow: 1 }}>
-      <Typography variant="h4" sx={{ mb: 2.5, color: 'text.primary' }}>
+    <Box sx={{ p: 2, width: '100%', height: '100%', boxSizing: 'border-box', overflow: 'auto' }}>
+      <Typography variant="h5" sx={{ mb: 2, color: 'text.secondary' }}>
         Reading Analytics
       </Typography>
 
-      <Box sx={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-        gap: 2.5,
-        mb: 3.75
-      }}>
-        <Paper sx={{ p: 2, bgcolor: 'black', color: 'white' }}>
-          <Typography variant="h6" sx={{ mb: 1.25, color: 'white' }}>
-            Total Reading Time
-          </Typography>
-          <Typography variant="h5" sx={{ color: 'white' }}>
-            {formatTime(totalTime)}
-          </Typography>
-        </Paper>
-      </Box>
-
-      <Box sx={{ mt: 3.75 }}>
-        <Typography variant="h5" sx={{ mb: 2, color: 'text.secondary' }}>
-          Read Breakdown
+      <Paper sx={{ p: 2, mb: 2, backgroundColor: 'background.default' }}>
+        <Typography variant="h6" sx={{ mb: 1 }}>
+          Total Reading Time
         </Typography>
+        <Typography variant="h4" color="primary">
+          {formatTime(totalTime)}
+        </Typography>
+      </Paper>
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {readStats.map((readStat) => {
+          const percentage = totalTime > 0 ? ((readStat.duration / totalTime) * 100).toFixed(1) : '0';
+          
           return (
-            <Paper
-              key={readStat.readId}
-              sx={{
-                p: 2,
-                mb: 2,
-                bgcolor: 'black',
-                color: 'white',
-                '&:last-child': { mb: 0 }
+            <Paper 
+              key={readStat.readId} 
+              sx={{ 
+                p: 2, 
+                backgroundColor: 'background.default',
+                border: '1px solid',
+                borderColor: 'divider'
               }}
             >
-              <Typography variant="h6" sx={{ mb: 1.25, color: 'white' }}>
-                {readStat.readTitle}
-              </Typography>
-              <Box component="ul" sx={{ m: 0, p: 0, listStyle: 'none' }}>
-                <Box component="li" sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  mb: 0.625,
-                  color: 'white'
-                }}>
-                  Total Time: {formatTime(readStat.duration)}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="h6" sx={{ color: 'text.primary' }}>
+                  {readStat.readTitle}
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  {percentage}% of total time
+                </Typography>
+              </Box>
+              
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Reading Time
+                  </Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+                    {formatTime(readStat.duration)}
+                  </Typography>
                 </Box>
-                <Box component="li" sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  mb: 0.625,
-                  color: 'white'
-                }}>
-                  Highlights: {readStat.highlightCount}
+                
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Total Highlights
+                  </Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+                    {readStat.highlightCount}
+                  </Typography>
                 </Box>
-                <Box component="li" sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  mb: 0.625,
-                  color: 'white'
-                }}>
-                  Image Highlights: {readStat.imageHighlightCount}
+                
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Text Highlights
+                  </Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+                    {readStat.textHighlightCount}
+                  </Typography>
                 </Box>
-                <Box component="li" sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  mb: 0.625,
-                  color: 'white'
-                }}>
-                  Text Highlights: {readStat.textHighlightCount}
-                </Box>
-                <Box component="li" sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  color: 'white'
-                }}>
-                  Last Read: {new Date(readStat.lastReadTime).toLocaleString()}
+                
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Image Highlights
+                  </Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+                    {readStat.imageHighlightCount}
+                  </Typography>
                 </Box>
               </Box>
+              
+              {readStat.lastReadTime > 0 && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Last Read: {new Date(readStat.lastReadTime).toLocaleString()}
+                  </Typography>
+                </Box>
+              )}
             </Paper>
           );
         })}
       </Box>
     </Box>
   );
-};
+}
 
 export default ReadingAnalyticsPanel;

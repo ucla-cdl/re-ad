@@ -3,26 +3,17 @@ import {
     TextHighlight,
     useHighlightContainerContext,
 } from "react-pdf-highlighter-extended";
-import { Content, Highlight } from "react-pdf-highlighter-extended";
-
-export interface ReadHighlight extends Highlight {
-    id: string;
-    readRecordId: string;
-    sessionId: string;
-    content: Content;
-    timestamp: number;
-    normalizedPositionY: number;
-}
+import { ReadHighlight } from "../../contexts/StorageContext";
 
 interface HighlightContainerProps {
-    readRecords: any;
+    readPurposes: any;
     displayedReads: Array<string>;
     selectedHighlightIds: Array<string>;
     setSelectedHighlightIds: (ids: Array<string>) => void;
 }
 
 function HighlightContainer({
-    readRecords,
+    readPurposes,
     displayedReads,
     selectedHighlightIds,
     setSelectedHighlightIds,
@@ -33,7 +24,7 @@ function HighlightContainer({
         highlightBindings,
     } = useHighlightContainerContext<ReadHighlight>();
 
-    const color = displayedReads.includes(highlight.readRecordId) ? readRecords[highlight.readRecordId].color : "#e6e6e6";
+    const color = displayedReads.includes(highlight.readPurposeId) ? readPurposes[highlight.readPurposeId].color : "#e6e6e6";
     const isSelected = selectedHighlightIds.includes(highlight.id);
 
     return (

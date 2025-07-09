@@ -1,54 +1,66 @@
 import { Box, Checkbox, FormControlLabel } from "@mui/material";
-import { ReadingState, UserData, UserRole, useStorageContext } from "../contexts/StorageContext";
+import { PaperData, ReadHighlight, ReadSession, UserData, UserRole, useStorageContext } from "../contexts/StorageContext";
 import { useEffect, useState } from "react";
 import * as d3 from "d3";
 import { usePaperContext } from "../contexts/PaperContext";
+import { UPDATE_INTERVAL } from "../contexts/ReadingAnalyticsContext";
 
 export const MultiAnalysisPanel = () => {
-    const { getAllUsers, getMultipleReadingStateData } = useStorageContext();
+    const { getAllUsers, getSessionsByUsersAndPapers, getHighlightsByUsersAndPapers, getAllPapersData } = useStorageContext();
     const { paperId, pdfViewerRef } = usePaperContext();
 
     const [studentsDict, setStudentsDict] = useState<Record<string, UserData>>({});
     const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
-    const [multipleReadingStateData, setMultipleReadingStateData] = useState<Record<string, ReadingState>>({});
+    const [papersDict, setPapersDict] = useState<Record<string, PaperData>>({});
+    const [selectedPaperIds, setSelectedPaperIds] = useState<string[]>([]);
+    const [userPaperReadSessions, setUserPaperReadSessions] = useState<Record<string, ReadSession[]>>({});
+    const [userPaperHighlights, setUserPaperHighlights] = useState<Record<string, ReadHighlight[]>>({});
     const [maxDuration, setMaxDuration] = useState(0);
+
+    const [showHighlights, setShowHighlights] = useState(false);
+    const HIGHLIGHT_COLOR = "red";
 
     useEffect(() => {
         if (!paperId) return;
-        fetchAllStudents();
+        fetchData();
     }, []);
 
     useEffect(() => {
-        if (Object.keys(multipleReadingStateData).length === 0) return;
+        if (Object.keys(userPaperReadSessions).length === 0) return;
         drawTimelineGraph();
-    }, [multipleReadingStateData]);
+    }, [userPaperReadSessions]);
 
     useEffect(() => {
-        if (Object.keys(studentsDict).length === 0) return;
-        Object.keys(studentsDict).forEach(studentId => {
-            toggleTimelineColor(studentId, selectedStudentIds.includes(studentId));
-        });
-    }, [selectedStudentIds]);
+        updateTimelineChart();
+    }, [selectedStudentIds, selectedPaperIds, showHighlights]);
 
-    const fetchAllStudents = async () => {
+    const fetchData = async () => {
         const students = await getAllUsers(UserRole.STUDENT);
         setStudentsDict(students.reduce((acc, student) => {
             acc[student.id] = student;
             return acc;
         }, {} as Record<string, UserData>));
         const studentIds = students.map((student) => student.id);
-        const multipleReadingStateData = await getMultipleReadingStateData(studentIds, paperId!);
+        setSelectedStudentIds(studentIds);
+
+        const papers = await getAllPapersData();
+        setPapersDict(papers.reduce((acc, paper) => {
+            acc[paper.id] = paper;
+            return acc;
+        }, {} as Record<string, PaperData>));
+        const paperIds = papers.map((paper) => paper.id);
+        setSelectedPaperIds(paperIds);
+
+        const sessionsByUserAndPaper = await getSessionsByUsersAndPapers(studentIds, paperIds);
+        const highlightsByUserAndPaper = await getHighlightsByUsersAndPapers(studentIds, paperIds);
         let maxDuration = 0;
-        multipleReadingStateData.forEach((readingState) => {
-            const sessions = Object.values(readingState.state.readingSessions);
+        Object.values(sessionsByUserAndPaper).forEach((sessions) => {
             const totalDuration = sessions.reduce((acc, session) => acc + session.duration, 0);
             maxDuration = Math.max(maxDuration, totalDuration);
         });
         setMaxDuration(maxDuration);
-        setMultipleReadingStateData(multipleReadingStateData.reduce((acc, readingState) => {
-            acc[readingState.userId] = readingState;
-            return acc;
-        }, {} as Record<string, ReadingState>));
+        setUserPaperReadSessions(sessionsByUserAndPaper);
+        setUserPaperHighlights(highlightsByUserAndPaper);
     }
 
     const handleStudentSelection = (studentId: string) => {
@@ -87,7 +99,7 @@ export const MultiAnalysisPanel = () => {
 
         // draw y axis title
         svg.append("text")
-            .text("Page Number")
+            .text("Paper Position (%)")
             .attr("transform", `translate(${margin.top}, ${margin.left + chartWidth / 2}) rotate(-90)`)
             .attr("text-anchor", "middle");
 
@@ -121,16 +133,12 @@ export const MultiAnalysisPanel = () => {
             .call(xAxis);
 
         const yScale = d3.scaleLinear()
-            .domain([0, pdfTotalHeight])
+            .domain([0, 100])
             .range([0, chartHeight]);
 
         const yAxis = d3.axisLeft(yScale)
             .tickSizeOuter(0)
-            .tickFormat((d) => {
-                const position = d as number;
-                const pageNumber = Math.floor(position / pdfPageHeight);
-                return `${pageNumber}`;
-            });
+            .tickFormat((d) => `${d}%`);
 
         chart.append("g")
             .call(yAxis);
@@ -139,32 +147,45 @@ export const MultiAnalysisPanel = () => {
             .x((d) => xScale(d[0]))
             .y((d) => yScale(d[1]));
 
-        Object.values(multipleReadingStateData).forEach((readingState) => {
-            const g = chart.append("g")
-                .attr("id", `reading-session-${readingState.userId}`)
-                .attr("class", "reading-session");
+        Object.entries(userPaperReadSessions).forEach(([key, sessions]) => {
+            const [userId, paperId] = key.split("_");
 
-            const highlights = readingState.state.highlights;
-            const sessions = Object.values(readingState.state.readingSessions);
+            const timelineGroup = chart.append("g")
+                .attr("id", `reading-timeline-${userId}-${paperId}`)
+                .attr("class", "reading-timeline");
+
             let durationIntercept = 0;
+
+            const highlights = userPaperHighlights[`${userId}_${paperId}`] || [];
+
             sessions.forEach(session => {
-                const scrollSequence = session.scrollSequence.map(scroll => [scroll[0] - session.startTime + durationIntercept, scroll[1]]) as [number, number][];
-                g.append("path")
-                    .attr("id", `reading-session-path-${session.sessionId}`)
+                const scrollSequence = session.scrollSequence.map((scrollPosition, index) => {
+                    const timestamp = index * UPDATE_INTERVAL + durationIntercept;
+                    const normalizedY = (scrollPosition / pdfTotalHeight) * 100;
+                    return [timestamp, normalizedY];
+                }) as [number, number][];
+
+                const sessionGroup = timelineGroup.append("g")
+                    .attr("id", `reading-session-${session.id}`)
+                    .attr("class", "reading-session");
+
+                sessionGroup.append("path")
+                    .attr("id", `reading-session-path-${session.id}`)
                     .attr("d", line(scrollSequence))
                     .attr("fill", "none")
                     .attr("stroke", "grey")
                     .attr("stroke-width", 2);
 
-                highlights.filter(highlight => highlight.sessionId === session.sessionId).forEach(highlight => {
+                highlights.filter(highlight => highlight.sessionId === session.id).forEach(highlight => {
                     const relativeTime = highlight.timestamp - session.startTime + durationIntercept;
-                    const yPosition = (highlight.position.boundingRect.pageNumber - 1) * pdfPageHeight + highlight.normalizedPositionY;
-                    g.append("circle")
-                        .attr("class", `highlight-circle-${highlight.readRecordId}`)
+                    const absoluteY = (highlight.position.boundingRect.pageNumber - 1) * pdfPageHeight + highlight.normalizedPositionY;
+                    const normalizedY = (absoluteY / pdfTotalHeight) * 100;
+                    sessionGroup.append("circle")
+                        .attr("class", `highlight-circle-${highlight.readPurposeId}`)
                         .attr("cx", xScale(relativeTime))
-                        .attr("cy", yScale(yPosition))
+                        .attr("cy", yScale(normalizedY))
                         .attr("r", 3)
-                        .attr("fill", "none")
+                        .attr("fill", showHighlights ? HIGHLIGHT_COLOR : "none")
                         .attr("stroke", "none")
                         .attr("stroke-width", 0.5);
                 });
@@ -174,38 +195,46 @@ export const MultiAnalysisPanel = () => {
         });
     }
 
-    const toggleTimelineColor = (studentId: string, isSelected: boolean) => {
-        const readingState = multipleReadingStateData[studentId];
-        if (!readingState) return;
+    const updateTimelineChart = () => {
+        if (Object.keys(studentsDict).length === 0 || Object.keys(papersDict).length === 0) return;
 
-        const readRecords = readingState.state.readRecords;
-        if (isSelected) {
-            const g = d3.select(`#reading-session-${studentId}`);
+        Object.entries(userPaperReadSessions).forEach(([key, _sessions]) => {
+            const [userId, paperId] = key.split("_");
+            updateVisibility(userId, paperId, selectedStudentIds.includes(userId) && selectedPaperIds.includes(paperId));
+        });
+    }
+
+    const updateVisibility = (userId: string, paperId: string, isShown: boolean) => {
+        const g = d3.select(`#reading-timeline-${userId}-${paperId}`);
+        if (!g) return;
+
+        if (isShown) {
             g.selectAll("path").each((_d, i, nodes) => {
                 const path = d3.select(nodes[i]);
-                const sessionId = path.attr("id").split("reading-session-path-")[1];
-                const readId = readingState.state.readingSessions[sessionId].readId;
-                path.attr("stroke", readRecords[readId].color);
+                path.attr("stroke", "grey");
             });
             g.selectAll("circle").each((_d, i, nodes) => {
                 const circle = d3.select(nodes[i]);
-                const readId = circle.attr("class").split("highlight-circle-")[1];
                 circle
-                    .attr("fill", readRecords[readId].color)
-                    .attr("stroke", "black");
+                    .attr("fill", showHighlights ? HIGHLIGHT_COLOR : "none")
             });
         } else {
-            const g = d3.select(`#reading-session-${studentId}`);
             g.selectAll("path")
-                .attr("stroke", "grey");
+                .attr("stroke", "none");
             g.selectAll("circle")
                 .attr("fill", "none")
-                .attr("stroke", "none");
         }
     }
 
     return (
         <Box sx={{ p: 2, width: '100%', height: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
+            <FormControlLabel
+                control={<Checkbox
+                    checked={showHighlights}
+                    onChange={() => setShowHighlights(!showHighlights)}
+                />}
+                label="Show Highlights"
+            />
             <Box sx={{ mb: 2, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2 }}>
                 {Object.values(studentsDict).map((student) => (
                     <FormControlLabel

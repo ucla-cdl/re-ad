@@ -1,15 +1,13 @@
 import { Box, Typography } from "@mui/material";
 import { Position, Handle, NodeProps, Node, useConnection } from "@xyflow/react";
-import "../../styles/GraphNode.css";
 import { usePaperContext } from "../../contexts/PaperContext";
+import "../../styles/GraphNode.css";
 
-export default function HighlightNode({ data }: NodeProps<Node>) {
-  const { id, readPurposeId, label, type, content } = data as {
+export default function PurposeNode({ data }: NodeProps<Node>) {
+  const { id, readPurposeId, label } = data as {
     id: string;
     readPurposeId: string;
     label: string;
-    type: string;
-    content: string;
   };
   const { readPurposes, displayedReads, selectedHighlightIds } = usePaperContext();
   const { color } = readPurposes[readPurposeId] || { color: "#e6e6e6" };
@@ -21,11 +19,11 @@ export default function HighlightNode({ data }: NodeProps<Node>) {
 
   return (
     <Box
-      className={`graph-node highlight-node ${isSelected ? "selected" : ""} ${isTarget ? "target" : ""}`}
+      className={`graph-node purpose-node ${isSelected ? "selected" : ""} ${isTarget ? "target" : ""}`}
       id={`node-${id}`}
-      sx={{ backgroundColor: isDisplayed ? color : "#e6e6e6" }}
+      sx={{ backgroundColor: isDisplayed ? `${color}` : "#e6e6e6" }}
     >
-      <Box sx={{ width: "100%", m: 1 }}>
+      <Box sx={{ width: "100%", m: 1, mb: 2 }}>
         <Handle
           className="connection-handle"
           id={`relational-handle-${id}-source`}
@@ -52,12 +50,10 @@ export default function HighlightNode({ data }: NodeProps<Node>) {
           className="connection-handle"
           id={`chronological-handle-${id}-source`}
           position={Position.Bottom}
-          type="source"
-          isConnectableStart={false}
+          type="source" isConnectableStart={false}
         />
 
-        <Typography variant="body1">{label}</Typography>
-        {type === "area" && <img src={content} alt="Node Content" style={{ maxWidth: "100%", maxHeight: "100px" }} />}
+        <Typography variant="h5" sx={{ fontWeight: 'bold' }}>{label}</Typography>
       </Box>
     </Box>
   );

@@ -19,7 +19,7 @@ function PaperPanel() {
     selectedHighlightIds,
     setSelectedHighlightIds,
     currentReadId,
-    readRecords,
+    readPurposes,
     displayedReads,
     pdfViewerRef
   } = usePaperContext();
@@ -69,15 +69,15 @@ function PaperPanel() {
                   highlighterUtilsRef.current = _pdfHighlighterUtils;
                 }}
                 selectionTip={
-                  Object.keys(readRecords).length > 0 && currentReadId !== "" ? (
+                  Object.keys(readPurposes).length > 0 && currentReadId !== "" ? (
                     <ExpandableTip addHighlight={addHighlight} />
                   ) : null
                 }
                 highlights={highlights}
-                textSelectionColor={readRecords[currentReadId]?.color}
+                textSelectionColor={readPurposes[currentReadId]?.color}
               >
                 <HighlightContainer
-                  readRecords={readRecords}
+                  readPurposes={readPurposes}
                   displayedReads={displayedReads} 
                   selectedHighlightIds={selectedHighlightIds}
                   setSelectedHighlightIds={setSelectedHighlightIds}

@@ -5,17 +5,6 @@ import { Box, Button, IconButton, TextField } from "@mui/material";
 import { usePaperContext } from "../../contexts/PaperContext";
 import { Close } from "@mui/icons-material";
 
-export type NodeData = {
-  label: string;
-  content: string;
-  summary: string;
-  references: string[];
-  notes: string;
-  type: string;
-};
-
-
-
 function NodeEditor() {
   const { nodes, updateNodeData, deleteHighlight, selectedHighlightIds, setSelectedHighlightIds, setOnSelectNode, query_gemini } = usePaperContext();
 
@@ -136,13 +125,6 @@ function NodeEditor() {
           }}
         />
       </Box>
-      {/* <Box className="field summary-container">
-        <h3 className="summary-title">Definition / Summary</h3>
-        <p className="summary-generated">
-          <span className="summary-label">(From Gemini)</span> {summary || "Generating summary..."}
-        </p>
-      </Box> */}
-      {/* <References className="field" /> */}
       <Box className="field">
         <h3>Notes</h3>
         <TextField
