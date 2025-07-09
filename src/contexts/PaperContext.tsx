@@ -11,10 +11,10 @@ import {
   Connection,
   MarkerType,
 } from "@xyflow/react";
-import { useTourContext } from "./TourContext";
+// import { useTourContext } from "./TourContext";
 import { PDFViewer } from "pdfjs-dist/types/web/pdf_viewer";
 import { v4 as uuidv4 } from 'uuid';
-import { ReadHighlight, ReadPurpose, useStorageContext } from "./StorageContext";
+import { Canvas, ReadHighlight, ReadPurpose, ReadSession, useStorageContext } from "./StorageContext";
 import { GoogleGenAI, Type } from "@google/genai";
 import { READING_GOAL_GENERATE_PROMPT, READING_SUGGESTION_SYSTEM_PROMPT } from "../utils/prompts";
 
@@ -32,6 +32,7 @@ type PaperContextData = {
   deleteHighlight: (highlightId: string) => void;
   resetHighlights: () => void;
   pdfViewerRef: React.RefObject<PDFViewer | null>;
+
   // Graph
   nodes: Array<Node>;
   setNodes: (nodes: Array<Node>) => void;
@@ -45,6 +46,7 @@ type PaperContextData = {
   createGroupNode: (nodeIds: string[], label?: string) => void;
   displayEdgeTypes: Array<string>;
   setDisplayEdgeTypes: (displayEdgeTypes: Array<string>) => void;
+
   // Shared
   readPurposes: Record<string, ReadPurpose>;
   createRead: (title: string, color: string) => void;
@@ -58,8 +60,18 @@ type PaperContextData = {
   showRead: (readId: string) => void;
   selectedHighlightIds: Array<string>;
   setSelectedHighlightIds: (highlightIds: Array<string>) => void;
+  
+  // Read Log
+  readSessions: Record<string, ReadSession>;
+  setReadSessions: (readSessions: Record<string, ReadSession>) => void;
+  
   // LLM
   query_gemini: (prompt: string, data: any) => Promise<string>;
+  // Mode
+  mode: "reading" | "analyzing";
+  changeMode: (mode: "reading" | "analyzing") => void;
+  saving: boolean;
+  saveReadingData: () => Promise<void>;
 };
 
 const PaperContext = createContext<PaperContextData | undefined>(undefined);
@@ -93,11 +105,17 @@ export const EDGE_TYPES = {
   RELATIONAL: "relational",
 }
 
+export const UPDATE_INTERVAL = 500;
+
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 export const PaperContextProvider = ({ children }: { children: React.ReactNode }) => {
   // const { setRunTour } = useTourContext();
-  const { userData, getHighlightsByUsersAndPapers, getPurposesByUserAndPaper, getCanvasByPaperId } = useStorageContext();
+  const { userData, getHighlightsByUsersAndPapers, getPurposesByUserAndPaper, getCanvasUserAndPaper, getSessionsByUsersAndPapers, batchAddPurposes, batchAddHighlights, batchAddSessions, createCanvas } = useStorageContext();
+
+  // Mode
+  const [mode, setMode] = useState<"reading" | "analyzing">("reading");
+  const [saving, setSaving] = useState(false);
 
   // Paper
   const [paperId, setPaperId] = useState<string | null>(null);
@@ -121,6 +139,11 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   const NODE_OFFSET_X = 150;
   const NODE_OFFSET_Y = 150;
 
+  // Read Log
+  const [readSessions, setReadSessions] = useState<Record<string, ReadSession>>({});
+  const updateIntervalRef = useRef<any>(null);
+  const currentSessionIdRef = useRef<string | null>(null);
+
   // LLM
   const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
@@ -131,6 +154,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   const resetControlStates = () => {
     setCurrentReadId("");
     setCurrentSessionId("");
+    currentSessionIdRef.current = null;
     setSelectedHighlightIds([]);
     setDisplayEdgeTypes([EDGE_TYPES.CHRONOLOGICAL, EDGE_TYPES.RELATIONAL]);
   };
@@ -141,6 +165,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     setNodes([]);
     setEdges([]);
     setDisplayedReads([]);
+    setReadSessions({});
     resetControlStates();
   };
 
@@ -154,9 +179,10 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         acc[purpose.id] = purpose;
         return acc;
       }, {} as Record<string, ReadPurpose>);
-      const canvas = await getCanvasByPaperId(paperId);
-      
-      if (highlights && purposes && canvas) {
+      const canvas = await getCanvasUserAndPaper(userData.id, paperId);
+      const sessionsByUserAndPaper = await getSessionsByUsersAndPapers([userData.id], [paperId]);
+
+      if (highlights && purposes && canvas && sessionsByUserAndPaper) {
         // Load stored paper data
         setHighlights(highlights);
         setReadPurposes(purposesRecord);
@@ -167,6 +193,13 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         console.log("reactFlowJson", reactFlowJson);
         setNodes(reactFlowJson.nodes as Node[]);
         setEdges(reactFlowJson.edges as Edge[]);
+
+        // Load stored read sessions data
+        const sessions = sessionsByUserAndPaper[`${userData.id}_${paperId}`] || [];
+        setReadSessions(sessions.reduce((acc, session) => {
+          acc[session.id] = session;
+          return acc; 
+        }, {} as Record<string, ReadSession>));
 
         resetControlStates();
       } else {
@@ -186,6 +219,18 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
       hidden: !displayEdgeTypes.includes(e.type ?? "")
     })));
   }, [displayEdgeTypes]);
+
+  const changeMode = async (newMode: "reading" | "analyzing") => {
+    if (newMode === "reading") {
+      resetControlStates();
+    } else if (newMode === "analyzing") {
+      stopUpdateReadingSession();
+      await saveReadingData();
+      resetControlStates();
+    }
+
+    setMode(newMode);
+  }
 
   const generateReadingGoals = async () => {
     if (!pdfViewerRef.current) return {} as ReadSuggestion;
@@ -227,7 +272,9 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     const id = `${currentReadId}-${chronologicalSeq}`;
 
     if (!pdfViewerRef.current) return;
-    const normalizedPositionY = highlight.position.boundingRect.y1 / pdfViewerRef.current.currentScale;
+    const pdfPageHeight = pdfViewerRef.current.getPageView(0).height;
+    const highlightPosition = highlight.position.boundingRect.y1 + (highlight.position.boundingRect.pageNumber - 1) * pdfPageHeight;
+    const posPercentage = highlightPosition / (pdfViewerRef.current.pagesCount * pdfPageHeight);
 
     setHighlights((prevHighlights: Array<ReadHighlight>) => [
       ...prevHighlights,
@@ -239,7 +286,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         readPurposeId: currentReadId,
         sessionId: currentSessionId,
         timestamp: Date.now(),
-        normalizedPositionY: normalizedPositionY,
+        posPercentage: posPercentage,
       },
     ]);
 
@@ -446,6 +493,143 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     setDisplayedReads([...displayedReads, readId]);
   };
 
+  // Create a new reading session
+  const createNewReadingSession = (readId: string) => {
+    console.log('Creating new reading session', readId);
+
+    const sessionId = uuidv4();
+    setCurrentSessionId(sessionId);
+
+    const startTime = Date.now();
+
+    const scrollPosPercentage = pdfViewerRef.current!.scroll.lastY / (pdfViewerRef.current!.pagesCount * pdfViewerRef.current!.getPageView(0).height);
+
+    setReadSessions(prev => ({
+      ...prev,
+      [sessionId]: {
+        id: sessionId,
+        userId: userData!.id,
+        paperId: paperId!,
+        readPurposeId: readId,
+        startTime: startTime,
+        duration: 0,
+        scrollSequence: [scrollPosPercentage],
+      },
+    }));
+
+    return sessionId;
+  };
+
+  // Update the reading session
+  const updateReadingSession = () => {
+    if (!currentSessionIdRef.current || !pdfViewerRef.current) return;
+
+    const sessionId = currentSessionIdRef.current;
+    if (!sessionId) return;
+
+    const timestamp = Date.now();
+    const focusCenter = pdfViewerRef.current.container.clientHeight / 2;
+    const scrollPosPercentage = (pdfViewerRef.current.scroll.lastY + focusCenter) / (pdfViewerRef.current.pagesCount * pdfViewerRef.current.getPageView(0).height);
+
+    setReadSessions(prev => ({
+      ...prev,
+      [sessionId]: {
+        ...prev[sessionId],
+        duration: timestamp - prev[sessionId].startTime,
+        scrollSequence: [...prev[sessionId].scrollSequence, scrollPosPercentage],
+      },
+    }));
+  }
+
+  // Start updating the reading session every UPDATE_INTERVAL milliseconds
+  const startUpdateReadingSession = () => {
+    updateIntervalRef.current = setInterval(() => {
+      updateReadingSession();
+    }, UPDATE_INTERVAL);
+  };
+
+  // Stop updating the reading session
+  const stopUpdateReadingSession = () => {
+    console.log('Stopping current update interval');
+
+    if (updateIntervalRef.current) {
+      clearInterval(updateIntervalRef.current);
+      updateIntervalRef.current = null;
+    }
+  };
+
+  // Start tracking new reading session when current read changes
+  useEffect(() => {
+    // Stop existing reading session
+    stopUpdateReadingSession();
+
+    if (currentReadId !== "") {
+      // Start new reading session
+      const sessionId = createNewReadingSession(currentReadId);
+      currentSessionIdRef.current = sessionId;
+      startUpdateReadingSession();
+    }
+
+    return () => {
+      stopUpdateReadingSession();
+    };
+  }, [currentReadId]);
+
+  // Handle page visibility changes
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && currentSessionIdRef.current) {
+        // Store the current session before stopping
+        stopUpdateReadingSession();
+        console.log('Visibility change: Hidden', currentSessionIdRef.current);
+      } else if (!document.hidden && currentSessionIdRef.current) {
+        // Resume the previous session when page becomes visible
+        startUpdateReadingSession();
+        console.log('Visibility change: Visible', currentSessionIdRef.current);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [currentSessionIdRef.current]);
+
+  const saveReadingData = async () => {
+    if (!userData) {
+      alert("Please login to save your work");
+      return;
+    }
+
+    if (saving) return; // Prevent multiple saves
+
+    setSaving(true);
+
+    try {
+      const purposes = Object.values(readPurposes);
+      await batchAddPurposes(purposes);
+      await batchAddHighlights(highlights);
+      await batchAddSessions(Object.values(readSessions));
+
+      const canvas = {
+        id: uuidv4(),
+        userId: userData.id,
+        paperId: paperId,
+        reactFlowJson: JSON.stringify({
+          nodes: nodes,
+          edges: edges,
+        }),
+      }
+      await createCanvas(canvas as Canvas);
+
+    } catch (error: any) {
+      console.error('Error saving data:', error);
+      alert('Failed to save data. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const query_gemini = async (prompt: string, data?: any) => {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
@@ -524,8 +708,16 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         showRead,
         selectedHighlightIds,
         setSelectedHighlightIds,
+        // Read Log
+        readSessions,
+        setReadSessions,
         // LLM
         query_gemini,
+        // Mode
+        mode,
+        changeMode,
+        saving,
+        saveReadingData,
       }}
     >
       {children}

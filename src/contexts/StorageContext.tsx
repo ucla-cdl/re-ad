@@ -48,7 +48,7 @@ export type ReadHighlight = Highlight & {
     sessionId: string;
     content: Content;
     timestamp: number;
-    normalizedPositionY: number;
+    posPercentage: number;
 };
 
 // Atomic logging unit of user's reading process
@@ -87,7 +87,7 @@ type StorageContextData = {
     addPaperFile: (paperId: string, file: File) => Promise<void>;
     
     // Canvas Functions
-    getCanvasByPaperId: (paperId: string) => Promise<Canvas | null>;
+    getCanvasUserAndPaper: (userId: string, paperId: string) => Promise<Canvas | null>;
     createCanvas: (canvasData: Canvas) => Promise<string>;
     updateCanvas: (canvasId: string, updates: Partial<Canvas>) => Promise<void>;
 
@@ -262,8 +262,8 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
     }
 
     // Canvas Functions
-    const getCanvasByPaperId = async (paperId: string): Promise<Canvas | null> => {
-        const q = query(canvasesCollectionRef, where('paperId', '==', paperId));
+    const getCanvasUserAndPaper = async (userId: string, paperId: string): Promise<Canvas | null> => {
+        const q = query(canvasesCollectionRef, where('userId', '==', userId), where('paperId', '==', paperId));
         const querySnapshot = await getDocs(q);
         return querySnapshot.docs.map(doc => doc.data() as Canvas)[0];
     }
@@ -430,7 +430,7 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
                 addPaperData,
                 getPaperFile,
                 addPaperFile,
-                getCanvasByPaperId,
+                getCanvasUserAndPaper,
                 createCanvas,
                 updateCanvas,
                 getHighlightsByUser,

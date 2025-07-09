@@ -2,15 +2,13 @@ import { Box, Checkbox, FormControlLabel } from "@mui/material";
 import { PaperData, ReadHighlight, ReadSession, UserData, UserRole, useStorageContext } from "../contexts/StorageContext";
 import { useEffect, useState } from "react";
 import * as d3 from "d3";
-import { usePaperContext } from "../contexts/PaperContext";
-import { UPDATE_INTERVAL } from "../contexts/ReadingAnalyticsContext";
+import { UPDATE_INTERVAL, usePaperContext } from "../contexts/PaperContext";
 
-export const MultiAnalysisPanel = () => {
-    const { getAllUsers, getSessionsByUsersAndPapers, getHighlightsByUsersAndPapers, getAllPapersData } = useStorageContext();
-    const { paperId, pdfViewerRef } = usePaperContext();
+export const AnalysisPanel = () => {
+    const { userData, getUserById, getAllUsers, getSessionsByUsersAndPapers, getHighlightsByUsersAndPapers, getAllPapersData } = useStorageContext();
 
-    const [studentsDict, setStudentsDict] = useState<Record<string, UserData>>({});
-    const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+    const [usersDict, setUsersDict] = useState<Record<string, UserData>>({});
+    const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
     const [papersDict, setPapersDict] = useState<Record<string, PaperData>>({});
     const [selectedPaperIds, setSelectedPaperIds] = useState<string[]>([]);
     const [userPaperReadSessions, setUserPaperReadSessions] = useState<Record<string, ReadSession[]>>({});
@@ -21,7 +19,6 @@ export const MultiAnalysisPanel = () => {
     const HIGHLIGHT_COLOR = "red";
 
     useEffect(() => {
-        if (!paperId) return;
         fetchData();
     }, []);
 
@@ -32,16 +29,27 @@ export const MultiAnalysisPanel = () => {
 
     useEffect(() => {
         updateTimelineChart();
-    }, [selectedStudentIds, selectedPaperIds, showHighlights]);
+    }, [selectedUserIds, selectedPaperIds, showHighlights]);
 
     const fetchData = async () => {
-        const students = await getAllUsers(UserRole.STUDENT);
-        setStudentsDict(students.reduce((acc, student) => {
-            acc[student.id] = student;
-            return acc;
-        }, {} as Record<string, UserData>));
-        const studentIds = students.map((student) => student.id);
-        setSelectedStudentIds(studentIds);
+        if (!userData) return;
+        let userIds: string[] = [];
+        if (userData.role === UserRole.STUDENT) {
+            setUsersDict({
+                [userData.id]: userData,
+            });
+            setSelectedUserIds([userData.id]);
+            userIds = [userData.id];
+        }
+        else {
+            const users = await getAllUsers(UserRole.STUDENT);
+            setUsersDict(users.reduce((acc, user) => {
+                acc[user.id] = user;
+                return acc;
+            }, {} as Record<string, UserData>));
+            setSelectedUserIds(users.map((user) => user.id));
+            userIds = users.map((user) => user.id);
+        }
 
         const papers = await getAllPapersData();
         setPapersDict(papers.reduce((acc, paper) => {
@@ -51,8 +59,8 @@ export const MultiAnalysisPanel = () => {
         const paperIds = papers.map((paper) => paper.id);
         setSelectedPaperIds(paperIds);
 
-        const sessionsByUserAndPaper = await getSessionsByUsersAndPapers(studentIds, paperIds);
-        const highlightsByUserAndPaper = await getHighlightsByUsersAndPapers(studentIds, paperIds);
+        const sessionsByUserAndPaper = await getSessionsByUsersAndPapers(userIds, paperIds);
+        const highlightsByUserAndPaper = await getHighlightsByUsersAndPapers(userIds, paperIds);
         let maxDuration = 0;
         Object.values(sessionsByUserAndPaper).forEach((sessions) => {
             const totalDuration = sessions.reduce((acc, session) => acc + session.duration, 0);
@@ -63,12 +71,12 @@ export const MultiAnalysisPanel = () => {
         setUserPaperHighlights(highlightsByUserAndPaper);
     }
 
-    const handleStudentSelection = (studentId: string) => {
-        setSelectedStudentIds((prev) => {
-            if (prev.includes(studentId)) {
-                return prev.filter((id) => id !== studentId);
+    const handleUserSelection = (userId: string) => {
+        setSelectedUserIds((prev) => {
+            if (prev.includes(userId)) {
+                return prev.filter((id) => id !== userId);
             }
-            return [...prev, studentId];
+            return [...prev, userId];
         });
     }
 
@@ -108,14 +116,6 @@ export const MultiAnalysisPanel = () => {
             .attr("transform", `translate(${margin.left + titleOffset}, ${margin.top + titleOffset})`)
             .attr("width", chartWidth)
             .attr("height", chartHeight);
-
-        if (!pdfViewerRef.current) {
-            return;
-        }
-
-        // Normalize the page height by the current scale
-        const pdfPageHeight = pdfViewerRef.current.getPageView(0).height / pdfViewerRef.current.currentScale;
-        const pdfTotalHeight = pdfViewerRef.current.pagesCount * pdfPageHeight;
 
         const xScale = d3.scaleLinear()
             .domain([0, maxDuration])
@@ -159,10 +159,9 @@ export const MultiAnalysisPanel = () => {
             const highlights = userPaperHighlights[`${userId}_${paperId}`] || [];
 
             sessions.forEach(session => {
-                const scrollSequence = session.scrollSequence.map((scrollPosition, index) => {
+                const scrollSequence = session.scrollSequence.map((scrollPosPercentage, index) => {
                     const timestamp = index * UPDATE_INTERVAL + durationIntercept;
-                    const normalizedY = (scrollPosition / pdfTotalHeight) * 100;
-                    return [timestamp, normalizedY];
+                    return [timestamp, scrollPosPercentage * 100];
                 }) as [number, number][];
 
                 const sessionGroup = timelineGroup.append("g")
@@ -178,12 +177,10 @@ export const MultiAnalysisPanel = () => {
 
                 highlights.filter(highlight => highlight.sessionId === session.id).forEach(highlight => {
                     const relativeTime = highlight.timestamp - session.startTime + durationIntercept;
-                    const absoluteY = (highlight.position.boundingRect.pageNumber - 1) * pdfPageHeight + highlight.normalizedPositionY;
-                    const normalizedY = (absoluteY / pdfTotalHeight) * 100;
                     sessionGroup.append("circle")
                         .attr("class", `highlight-circle-${highlight.readPurposeId}`)
                         .attr("cx", xScale(relativeTime))
-                        .attr("cy", yScale(normalizedY))
+                        .attr("cy", yScale(highlight.posPercentage * 100))
                         .attr("r", 3)
                         .attr("fill", showHighlights ? HIGHLIGHT_COLOR : "none")
                         .attr("stroke", "none")
@@ -196,11 +193,11 @@ export const MultiAnalysisPanel = () => {
     }
 
     const updateTimelineChart = () => {
-        if (Object.keys(studentsDict).length === 0 || Object.keys(papersDict).length === 0) return;
+        if (Object.keys(usersDict).length === 0 || Object.keys(papersDict).length === 0) return;
 
         Object.entries(userPaperReadSessions).forEach(([key, _sessions]) => {
             const [userId, paperId] = key.split("_");
-            updateVisibility(userId, paperId, selectedStudentIds.includes(userId) && selectedPaperIds.includes(paperId));
+            updateVisibility(userId, paperId, selectedUserIds.includes(userId) && selectedPaperIds.includes(paperId));
         });
     }
 
@@ -236,14 +233,14 @@ export const MultiAnalysisPanel = () => {
                 label="Show Highlights"
             />
             <Box sx={{ mb: 2, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2 }}>
-                {Object.values(studentsDict).map((student) => (
+                {Object.values(usersDict).map((user) => (
                     <FormControlLabel
-                        key={student.id}
+                        key={user.id}
                         control={<Checkbox
-                            checked={selectedStudentIds.includes(student.id)}
-                            onChange={() => handleStudentSelection(student.id)}
+                            checked={selectedUserIds.includes(user.id)}
+                            onChange={() => handleUserSelection(user.id)}
                         />}
-                        label={student.name}
+                        label={user.name}
                         sx={{ width: '100%' }}
                     />
                 ))}

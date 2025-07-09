@@ -10,10 +10,8 @@ import {
   NodeMouseHandler,
   useReactFlow,
   ReactFlowProvider,
-  type Node,
-  useConnection,
 } from "@xyflow/react";
-import { Box, Checkbox, FormControlLabel, FormGroup, IconButton, Collapse, Paper } from "@mui/material";
+import { Box, Checkbox, FormControlLabel, FormGroup, IconButton, Paper } from "@mui/material";
 import HighlightNode from "../components/graph-components/HighlightNode";
 import OverviewNode from "../components/graph-components/OverviewNode";
 import ChronologicalEdge from "../components/graph-components/ChronologicalEdge";
@@ -303,9 +301,9 @@ function Flow(props: any) {
           )}
         </Box>
       </Panel>
-      {/* <Panel position="top-right">
+      <Panel position="top-right">
         <IconButton onClick={openOverview}>{isOverview ? <CloseFullscreen /> : <OpenInFull />}</IconButton>
-      </Panel> */}
+      </Panel>
 
       <ContextMenu
         open={contextMenu.open}

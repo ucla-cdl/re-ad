@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { usePaperContext } from '../contexts/PaperContext';
-import { useReadingAnalyticsContext } from '../contexts/ReadingAnalyticsContext';
 import { Box, Typography, Paper } from '@mui/material';
 
 const formatTime = (ms: number): string => {
@@ -28,8 +27,7 @@ type ReadStats = {
 }
 
 function ReadingAnalyticsPanel() {
-  const { highlights, readPurposes } = usePaperContext();
-  const { readSessions } = useReadingAnalyticsContext();
+  const { highlights, readPurposes, readSessions } = usePaperContext();
 
   const [totalTime, setTotalTime] = useState(0);
   const [readStats, setReadStats] = useState<ReadStats[]>([]);

@@ -34,6 +34,7 @@ import {
     Logout as LogoutIcon,
     Edit as EditIcon,
     MoreVert as MoreVertIcon,
+    Analytics as AnalyticsIcon,
 } from '@mui/icons-material';
 import { useStorageContext, PaperData, UserRole } from '../contexts/StorageContext';
 import { v4 as uuidv4 } from 'uuid';
@@ -330,6 +331,10 @@ export const PapersHub = () => {
         setUserMenuAnchor(null);
     };
 
+    const handleAnalyzeReads = () => {
+        navigate(`/read-analyzer`);
+    }
+
     return (
         <Box className="papers-hub-container">
             {/* Header */}
@@ -416,6 +421,15 @@ export const PapersHub = () => {
                         size="large"
                     >
                         Add Paper
+                    </Button>
+
+                    <Button
+                        variant="contained"
+                        startIcon={<AnalyticsIcon />}
+                        onClick={handleAnalyzeReads}
+                        size="large"
+                    >
+                        Analyze Reads
                     </Button>
                 </Box>
             </Box>

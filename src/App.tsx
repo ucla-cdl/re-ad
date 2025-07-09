@@ -6,7 +6,6 @@ import { TourProvider } from "./contexts/TourContext";
 import { HashRouter, Route, Routes } from "react-router-dom";
 import { Home } from "./containers/ProjectPage";
 import { PapersHub } from "./containers/PapersHub";
-import { ReadingAnalyticsProvider } from "./contexts/ReadingAnalyticsContext";
 import { StorageProvider } from "./contexts/StorageContext";
 
 function App() {
@@ -18,7 +17,6 @@ function App() {
     <StorageProvider>
       <TourProvider>
         <PaperContextProvider>
-          <ReadingAnalyticsProvider>
               <HashRouter>
                 <Routes>
                   <Route path="/" element={<Home />} />
@@ -26,7 +24,6 @@ function App() {
                   <Route path="/paper-reader" element={<PaperReader />} />
                 </Routes>
               </HashRouter>
-          </ReadingAnalyticsProvider>
         </PaperContextProvider>
       </TourProvider>
     </StorageProvider>

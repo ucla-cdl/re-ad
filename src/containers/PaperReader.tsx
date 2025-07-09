@@ -1,8 +1,6 @@
 import NavBar from "../components/paper-components/NavBar";
 import PaperPanel from "./PaperPanel";
 import GraphPanel from "./GraphPanel";
-import ReadingAnalyticsPanel from "../components/ReadingAnalyticsPanel";
-import { HighlightTimeline } from '../components/HighlightTimeline';
 import { Box } from "@mui/material";
 import "../styles/PaperReader.css";
 import { usePaperContext } from "../contexts/PaperContext";
@@ -12,11 +10,12 @@ import { TourContext } from "../contexts/TourContext";
 import { useLocation } from "react-router-dom";
 import Split from 'react-split';
 import { UserRole, useStorageContext } from "../contexts/StorageContext";
-import { MultiAnalysisPanel } from "../components/MultiAnalysisPanel";
+import { AnalysisPanel } from "./AnalysisPanel";
+import { PaperSelector } from "../components/paper-components/PaperSelector";
 
 export const PaperReader = () => {
   const { userData, getPaperFile } = useStorageContext();
-  const { setPaperUrl, setPaperId } = usePaperContext();
+  const { setPaperUrl, setPaperId, paperUrl, paperId, mode } = usePaperContext();
   const location = useLocation();
 
   const tourContext = useContext(TourContext);
@@ -25,7 +24,14 @@ export const PaperReader = () => {
   }
   const { setRunTour, runTour, steps, stepIndex, setStepIndex } = tourContext;
 
-  const [viewType, setViewType] = useState<'graph' | 'analytics' | 'timeline'>('graph');
+  // =======
+  const handlePaperSelect = (paperId: string, paperUrl?: string) => {
+    setPaperId(paperId);
+    if (paperUrl) {
+      setPaperUrl(paperUrl);
+    }
+  };
+  // =======
 
   // When leaving the page, setPaperId to null
   useEffect(() => {
@@ -76,13 +82,10 @@ export const PaperReader = () => {
         />
       </div>
       <Box sx={{ height: "8%", width: "100%", display: "flex" }}>
-        <NavBar 
-          onAnalyticsClick={() => setViewType(viewType === 'analytics' ? 'graph' : 'analytics')}
-          onTimelineClick={() => setViewType(viewType === 'timeline' ? 'graph' : 'timeline')}
-        />
+        <NavBar />
       </Box>
       <Box sx={{ width: "100%", height: "92%" }}>
-        <Split
+        {/* <Split
           className="split"
           sizes={[60, 40]}
           minSize={200}
@@ -98,10 +101,37 @@ export const PaperReader = () => {
             <PaperPanel />
           </Box>
           <Box className="panel graph-panel">
-            {viewType === 'graph' && <GraphPanel />}
-            {viewType === 'analytics' && <ReadingAnalyticsPanel />}
-            {viewType === 'timeline' && userData?.role === UserRole.STUDENT && <HighlightTimeline />}
-            {viewType === 'timeline' && userData?.role === UserRole.TEACHER && <MultiAnalysisPanel />}
+            <GraphPanel />
+          </Box>
+        </Split> */}
+
+        <Split
+          className="split"
+          sizes={[20, 40, 40]}
+          minSize={200}
+          expandToMin={false}
+          gutterSize={10}
+          gutterAlign="center"
+          snapOffset={30}
+          dragInterval={1}
+          direction="horizontal"
+          cursor="col-resize"
+        >
+          <Box className="panel paper-selector-panel">
+            <PaperSelector
+              selectedPaperId={paperId}
+              onPaperSelect={handlePaperSelect}
+            />
+          </Box>
+          <Box className="panel paper-panel">
+            <PaperPanel />
+          </Box>
+          <Box className="panel graph-panel">
+            {mode === "reading" ? (
+              <GraphPanel />
+            ) : (
+              <AnalysisPanel />
+            )}
           </Box>
         </Split>
       </Box>
