@@ -3,31 +3,17 @@ import PaperPanel from "./PaperPanel";
 import GraphPanel from "./GraphPanel";
 import { Box, IconButton } from "@mui/material";
 import "../styles/PaperReader.css";
-import { usePaperContext } from "../contexts/PaperContext";
-import { useContext, useState, useEffect } from "react";
+import { useContext, useState } from "react";
 import Joyride, { ACTIONS, CallBackProps, EVENTS, STATUS } from "react-joyride";
 import { TourContext } from "../contexts/TourContext";
-import { useLocation } from "react-router-dom";
 import Split from 'react-split';
-import { UserRole, useStorageContext } from "../contexts/StorageContext";
 import { AnalysisPanel } from "./AnalysisPanel";
 import { PaperSelector } from "../components/paper-components/PaperSelector";
 import { ChevronLeft, ChevronRight } from "@mui/icons-material";
+import { MODE_TYPES, useWorkspaceContext } from "../contexts/WorkspaceContext";
 
 export const PaperReader = () => {
-  const { userData, getPaperFile } = useStorageContext();
-  const {
-    setPaperUrl,
-    setPaperId,
-    paperUrl,
-    paperId,
-    mode,
-    selectedAnalyticsPapersId: selectedPapersForAnalytics,
-    selectedAnalyticsUsersId: selectedUsersForAnalytics,
-    togglePaperForAnalytics,
-    toggleUserForAnalytics,
-  } = usePaperContext();
-  const location = useLocation();
+  const { mode } = useWorkspaceContext();
 
   // Paper selector visibility state
   const [paperSelectorVisible, setPaperSelectorVisible] = useState(true);
@@ -38,37 +24,9 @@ export const PaperReader = () => {
   }
   const { setRunTour, runTour, steps, stepIndex, setStepIndex } = tourContext;
 
-  const handlePaperSelect = (paperId: string, paperUrl?: string) => {
-    setPaperId(paperId);
-    if (paperUrl) {
-      setPaperUrl(paperUrl);
-    }
-  };
-
   const togglePaperSelector = () => {
     setPaperSelectorVisible(prev => !prev);
   };
-
-  // When leaving the page, setPaperId to null
-  useEffect(() => {
-    return () => {
-      setPaperId(null);
-    }
-  }, []);
-
-  // Handle paper URL from navigation state
-  useEffect(() => {
-    fetchPaperFile();
-  }, [location.state]);
-
-  const fetchPaperFile = async () => {
-    const state = location.state as { paperId?: string };
-    if (state?.paperId) {
-      setPaperId(state.paperId);
-      const fileUrl = await getPaperFile(state.paperId);
-      setPaperUrl(fileUrl);
-    }
-  }
 
   const handleTourCallback = (data: CallBackProps) => {
     const { action, index, status, type, step } = data;
@@ -83,8 +41,6 @@ export const PaperReader = () => {
       setRunTour(false);
     }
   };
-
-
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", width: "100vw", height: "100vh" }}>
@@ -129,14 +85,7 @@ export const PaperReader = () => {
         </IconButton>
 
         <Box className="panel paper-selector-panel" sx={{ width: paperSelectorVisible ? "15%" : "0%" }}>
-          <PaperSelector
-            selectedPaperId={paperId}
-            onPaperSelect={handlePaperSelect}
-            selectedPapersForAnalytics={selectedPapersForAnalytics}
-            selectedUsersForAnalytics={selectedUsersForAnalytics}
-            onAnalyticsPaperToggle={togglePaperForAnalytics}
-            onAnalyticsUserToggle={toggleUserForAnalytics}
-          />
+          <PaperSelector />
         </Box>
 
         <Split
@@ -156,11 +105,8 @@ export const PaperReader = () => {
             <PaperPanel />
           </Box>
           <Box className="panel graph-panel">
-            {mode === "reading" ? (
-              <GraphPanel />
-            ) : (
-              <AnalysisPanel />
-            )}
+            {mode === MODE_TYPES.READING && <GraphPanel />}
+            {mode === MODE_TYPES.ANALYZING && <AnalysisPanel />}
           </Box>
         </Split>
       </Box>

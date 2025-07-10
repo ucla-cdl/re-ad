@@ -34,13 +34,13 @@ import {
     Logout as LogoutIcon,
     Edit as EditIcon,
     MoreVert as MoreVertIcon,
-    Analytics as AnalyticsIcon,
 } from '@mui/icons-material';
 import { useStorageContext, PaperData, UserRole } from '../contexts/StorageContext';
 import { v4 as uuidv4 } from 'uuid';
-import { useNavigate } from 'react-router-dom';
 import icon from "/re-ad-icon.svg"
 import '../styles/PapersHub.css';
+import { useWorkspaceContext } from '../contexts/WorkspaceContext';
+import { useNavigate } from 'react-router-dom';
 
 type uploadPaperData = {
     title: string;
@@ -48,8 +48,6 @@ type uploadPaperData = {
 }
 
 export const PapersHub = () => {
-    const navigate = useNavigate();
-
     const [loginDialogOpen, setLoginDialogOpen] = useState(false);
     const [isLoginMode, setIsLoginMode] = useState(true); // true for login, false for register
     const [loginEmail, setLoginEmail] = useState('');
@@ -66,52 +64,30 @@ export const PapersHub = () => {
         confirmPassword: ''
     });
 
-    const [papers, setPapers] = useState<PaperData[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [filteredPapers, setFilteredPapers] = useState<PaperData[]>([]);
 
-    const [loading, setLoading] = useState(true);
     const [addPaperDialogOpen, setAddPaperDialogOpen] = useState(false);
     const [uploadPaper, setUploadPaper] = useState<uploadPaperData>({
         title: '',
         file: new File([], '')
     });
 
-    const { userData, setUserData, loadUserData, addUser, updateUser, getUserByEmail, getAllPapersData, addPaperData, addPaperFile, addPaperToUser } = useStorageContext();
+    const { userData, setUserData, loadUserData, updateUser, getUserByEmail, addPaperData, addPaperFile, addPaperToUser } = useStorageContext();
+    const { papersDict, viewingPaperId, setViewingPaperId } = useWorkspaceContext();
+    const navigate = useNavigate();
 
     const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(null);
     const [editProfileDialogOpen, setEditProfileDialogOpen] = useState(false);
     const [editedUserName, setEditedUserName] = useState('');
 
     useEffect(() => {
-        loadPapers();
-    }, [userData]);
-
-    useEffect(() => {
         // Filter papers based on search query
-        const filtered = papers.filter(paper =>
+        const filtered = Object.values(papersDict).filter((paper: PaperData) =>
             paper.title.toLowerCase().includes(searchQuery.toLowerCase())
         );
         setFilteredPapers(filtered);
-    }, [searchQuery, papers]);
-
-    const loadPapers = async () => {
-        try {
-            if (!userData) {
-                setPapers([]);
-                return;
-            }
-            
-            setLoading(true);
-            const paperData = await getAllPapersData();
-            setPapers(paperData.filter(paper => userData.paperIds.includes(paper.id)));
-        } catch (error) {
-            console.error('Error loading papers:', error);
-            setPapers([]);
-        } finally {
-            setLoading(false);
-        }
-    };
+    }, [searchQuery, papersDict]);
 
     const handleAddPaper = () => {
         setUploadPaper({
@@ -179,11 +155,6 @@ export const PapersHub = () => {
         }
     };
 
-    const handlePaperClick = (paperId: string) => {
-        // open paper reader
-        navigate(`/paper-reader`, { state: { paperId: paperId } });
-    }
-
     const validateAuth = async () => {
         // Reset error states
         setInputError({
@@ -225,7 +196,7 @@ export const PapersHub = () => {
             }
 
             const userId = uuidv4();
-            await addUser({
+            await updateUser({
                 id: userId,
                 email: loginEmail,
                 password: loginPassword,
@@ -307,13 +278,13 @@ export const PapersHub = () => {
 
     const handleSaveProfile = async () => {
         if (!userData || !editedUserName.trim()) return;
-        
+
         try {
             const updatedUserData = {
                 ...userData,
                 name: editedUserName.trim()
             };
-            
+
             await updateUser(updatedUserData);
             await loadUserData(userData.id);
             setEditProfileDialogOpen(false);
@@ -331,8 +302,9 @@ export const PapersHub = () => {
         setUserMenuAnchor(null);
     };
 
-    const handleAnalyzeReads = () => {
-        navigate(`/read-analyzer`);
+    const handlePaperClick = (paperId: string) => {
+        setViewingPaperId(paperId);
+        navigate('/paper-reader');
     }
 
     return (
@@ -355,14 +327,14 @@ export const PapersHub = () => {
                             <Typography variant="body1" color="text.secondary">
                                 {userData.name}
                             </Typography>
-                            <IconButton 
-                                size="small" 
+                            <IconButton
+                                size="small"
                                 onClick={handleUserMenuOpen}
                                 sx={{ ml: 1 }}
                             >
                                 <MoreVertIcon />
                             </IconButton>
-                            
+
                             <Menu
                                 anchorEl={userMenuAnchor}
                                 open={Boolean(userMenuAnchor)}
@@ -422,15 +394,6 @@ export const PapersHub = () => {
                     >
                         Add Paper
                     </Button>
-
-                    <Button
-                        variant="contained"
-                        startIcon={<AnalyticsIcon />}
-                        onClick={handleAnalyzeReads}
-                        size="large"
-                    >
-                        Analyze Reads
-                    </Button>
                 </Box>
             </Box>
 
@@ -449,52 +412,43 @@ export const PapersHub = () => {
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {loading ? (
-                            Array.from(new Array(5)).map((_, index) => (
-                                <TableRow key={index}>
-                                    <TableCell><Skeleton variant="circular" width={40} height={40} /></TableCell>
-                                    <TableCell><Skeleton variant="text" /></TableCell>
-                                </TableRow>
-                            ))
-                        ) : (
-                            filteredPapers.map((paper) => (
-                                <TableRow
-                                    key={paper.id}
-                                    sx={{
-                                        '&:hover': {
-                                            bgcolor: 'action.hover'
-                                        }
-                                    }}
-                                    onClick={() => handlePaperClick(paper.id)}
-                                >
-                                    <TableCell>
-                                        <Avatar sx={{ bgcolor: 'grey.200' }}>
-                                            <PdfIcon sx={{ color: 'grey.600' }} />
-                                        </Avatar>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Typography
-                                            variant="body2"
-                                            sx={{
-                                                fontWeight: 500,
-                                                display: '-webkit-box',
-                                                WebkitLineClamp: 2,
-                                                WebkitBoxOrient: 'vertical',
-                                                overflow: 'hidden'
-                                            }}
-                                        >
-                                            {paper.title}
-                                        </Typography>
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        )}
+                        {filteredPapers.map((paper) => (
+                            <TableRow
+                                key={paper.id}
+                                sx={{
+                                    '&:hover': {
+                                        bgcolor: 'action.hover'
+                                    }
+                                }}
+                                onClick={() => handlePaperClick(paper.id)}
+                            >
+                                <TableCell>
+                                    <Avatar sx={{ bgcolor: 'grey.200' }}>
+                                        <PdfIcon sx={{ color: 'grey.600' }} />
+                                    </Avatar>
+                                </TableCell>
+                                <TableCell>
+                                    <Typography
+                                        variant="body2"
+                                        sx={{
+                                            fontWeight: 500,
+                                            display: '-webkit-box',
+                                            WebkitLineClamp: 2,
+                                            WebkitBoxOrient: 'vertical',
+                                            overflow: 'hidden'
+                                        }}
+                                    >
+                                        {paper.title}
+                                    </Typography>
+                                </TableCell>
+                            </TableRow>
+                        ))}
                     </TableBody>
                 </Table>
             </Paper>
 
             {/* Empty state */}
-            {filteredPapers.length === 0 && !loading && (
+            {filteredPapers.length === 0 && (
                 <Box
                     sx={{
                         display: 'flex',

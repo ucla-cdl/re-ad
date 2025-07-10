@@ -24,9 +24,12 @@ import {
   Switch
 } from "@mui/material";
 import { AddCircleOutline, Close, TipsAndUpdates, KeyboardArrowDown, Save, MenuBook, Analytics } from "@mui/icons-material";
-import logo from "/re-ad-logo.svg";
+import logo from "/re-ad-icon.svg";
 import { useNavigate } from "react-router-dom";
 import { ChromePicker } from 'react-color';
+import { MODE_TYPES, useWorkspaceContext } from "../../contexts/WorkspaceContext";
+import { useStorageContext } from "../../contexts/StorageContext";
+import { useAnalysisContext } from "../../contexts/AnalysisContext";
 
 const colorPalette = [
   "#FFADAD",
@@ -40,8 +43,10 @@ const colorPalette = [
 ];
 
 export default function NavBar() {
-  const { mode, changeMode, readPurposes, currentReadId, setCurrentReadId, displayedReads, hideRead, showRead, createRead, generateReadingGoals, saveReadingData, saving } = usePaperContext();
-
+  const { userData } = useStorageContext();
+  const { mode, setMode, viewingPaperId } = useWorkspaceContext();
+  const { readPurposes, currentReadId, setCurrentReadId, displayedReads, hideRead, showRead, createRead, generateReadingGoals, saveReadingData, saving, stopUpdateReadingSession, resetReadingControlStates } = usePaperContext();
+  const { togglePaperForAnalytics, toggleUserForAnalytics } = useAnalysisContext();
   const { setRunTour } = useTourContext();
   const navigate = useNavigate();
 
@@ -110,6 +115,24 @@ export default function NavBar() {
     setCurrentReadId(readId);
     handleCloseReadsMenu();
   };
+
+  const handleSwitchMode = async () => {
+    // current mode is reading => switch to analyzing
+    if (mode === MODE_TYPES.READING) {
+      // stop update reading session and save reading data
+      stopUpdateReadingSession();
+      await saveReadingData();
+      resetReadingControlStates();
+      // load default analytics papers and users
+      togglePaperForAnalytics(viewingPaperId!);
+      toggleUserForAnalytics(userData!.id);
+      setMode(MODE_TYPES.ANALYZING);
+    }
+    // current mode is analyzing => switch to reading
+    else if (mode === MODE_TYPES.ANALYZING) {
+      setMode(MODE_TYPES.READING);
+    }
+  }
 
   return (
     <div className="NavBar">
@@ -252,14 +275,8 @@ export default function NavBar() {
           // Analyzer mode: Show mode indicator
           <Box sx={{ display: "flex", alignItems: "center" }}>
             <Typography variant="h6" sx={{ color: 'text.primary', fontWeight: 'medium' }}>
-              Reading Analyzer
+              Analysis Mode
             </Typography>
-            <Chip
-              label="Analysis Mode"
-              size="small"
-              variant="outlined"
-              sx={{ ml: 2 }}
-            />
           </Box>
         )}
       </Box>
@@ -278,7 +295,7 @@ export default function NavBar() {
           <MenuBook sx={{ boxSizing: "border-box", color: mode === "reading" ? "primary.main" : "text.secondary" }} />
           <Switch
             checked={mode === "analyzing"}
-            onChange={(_, checked) => changeMode(checked ? "analyzing" : "reading")}
+            onChange={handleSwitchMode}
             inputProps={{ 'aria-label': 'toggle mode' }}
             sx={{
               boxSizing: "border-box",

@@ -7,6 +7,8 @@ import { HashRouter, Route, Routes } from "react-router-dom";
 import { Home } from "./containers/ProjectPage";
 import { PapersHub } from "./containers/PapersHub";
 import { StorageProvider } from "./contexts/StorageContext";
+import { WorkspaceProvider } from "./contexts/WorkspaceContext";
+import { AnalysisProvider } from "./contexts/AnalysisContext";
 
 function App() {
   useEffect(() => {
@@ -15,8 +17,10 @@ function App() {
 
   return (
     <StorageProvider>
-      <TourProvider>
-        <PaperContextProvider>
+      <WorkspaceProvider>
+        <TourProvider>
+          <AnalysisProvider>
+            <PaperContextProvider>
               <HashRouter>
                 <Routes>
                   <Route path="/" element={<Home />} />
@@ -24,8 +28,10 @@ function App() {
                   <Route path="/paper-reader" element={<PaperReader />} />
                 </Routes>
               </HashRouter>
-        </PaperContextProvider>
-      </TourProvider>
+            </PaperContextProvider>
+          </AnalysisProvider>
+        </TourProvider>
+      </WorkspaceProvider>
     </StorageProvider>
   );
 }

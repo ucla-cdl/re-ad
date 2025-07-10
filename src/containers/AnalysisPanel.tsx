@@ -1,10 +1,12 @@
-import { Box, Checkbox, FormControlLabel, Paper, Typography, Button, Breadcrumbs, Link, Chip } from "@mui/material";
-import { PaperData, ReadHighlight, ReadSession, UserData, UserRole, useStorageContext, ReadPurpose } from "../contexts/StorageContext";
+import { Box, Checkbox, FormControlLabel, Paper, Typography, Breadcrumbs, Link, Chip } from "@mui/material";
+import { ReadHighlight, ReadSession, useStorageContext, ReadPurpose } from "../contexts/StorageContext";
 import { useEffect, useState } from "react";
 import * as d3 from "d3";
-import { UPDATE_INTERVAL, usePaperContext } from "../contexts/PaperContext";
+import { UPDATE_INTERVAL } from "../contexts/PaperContext";
 import { formatTime } from "../utils/func";
-import { Person, Article, Psychology, Close } from "@mui/icons-material";
+import { Person, Article, Psychology, Analytics } from "@mui/icons-material";
+import { useWorkspaceContext } from "../contexts/WorkspaceContext";
+import { useAnalysisContext } from "../contexts/AnalysisContext";
 
 type PaperStats = {
     paperId: string;
@@ -41,8 +43,9 @@ type UserPurposeStats = {
 type AnalyticsLevel = 'papers' | 'users' | 'purposes';
 
 export const AnalysisPanel = () => {
-    const { userData, getSessionsByUsersAndPapers, getHighlightsByUsersAndPapers, getPurposesByUserAndPaper } = useStorageContext();
-    const { usersDict, papersDict, selectedAnalyticsPapersId, selectedAnalyticsUsersId, togglePaperForAnalytics, toggleUserForAnalytics } = usePaperContext();
+    const { getSessionsByUsersAndPapers, getHighlightsByUsersAndPapers, getPurposesByUserAndPaper } = useStorageContext();
+    const { usersDict, papersDict } = useWorkspaceContext();
+    const { selectedAnalyticsPapersId, selectedAnalyticsUsersId } = useAnalysisContext();
 
     const [userPaperReadSessions, setUserPaperReadSessions] = useState<Record<string, ReadSession[]>>({});
     const [userPaperHighlights, setUserPaperHighlights] = useState<Record<string, ReadHighlight[]>>({});
@@ -61,13 +64,20 @@ export const AnalysisPanel = () => {
     const [userPurposeStats, setUserPurposeStats] = useState<UserPurposeStats[]>([]);
 
     const [showHighlights, setShowHighlights] = useState(false);
-    const HIGHLIGHT_COLOR = "red";
-
-    const isTeacher = userData?.role === UserRole.TEACHER;
-
+    const HIGHLIGHT_COLOR = "black";
 
     useEffect(() => {
-        fetchData();
+        if (selectedAnalyticsUsersId.length > 0 && selectedAnalyticsPapersId.length > 0) {
+            fetchData();
+        }
+
+        if (selectedPaper && !selectedAnalyticsPapersId.includes(selectedPaper)) {
+            setSelectedPaper(null);
+            setAnalyticsLevel('papers');
+        } else if (selectedUser && !selectedAnalyticsUsersId.includes(selectedUser)) {
+            setSelectedUser(null);
+            setAnalyticsLevel('users');
+        }
     }, [selectedAnalyticsUsersId, selectedAnalyticsPapersId]);
 
     useEffect(() => {
@@ -77,7 +87,7 @@ export const AnalysisPanel = () => {
 
     useEffect(() => {
         updateTimelineChart();
-    }, [selectedAnalyticsUsersId, selectedAnalyticsPapersId, showHighlights]);
+    }, [showHighlights, analyticsLevel]);
 
     useEffect(() => {
         calculateAnalytics();
@@ -86,7 +96,7 @@ export const AnalysisPanel = () => {
     const fetchData = async () => {
         const sessionsByUserAndPaper = await getSessionsByUsersAndPapers(selectedAnalyticsUsersId, selectedAnalyticsPapersId);
         const highlightsByUserAndPaper = await getHighlightsByUsersAndPapers(selectedAnalyticsUsersId, selectedAnalyticsPapersId);
-        
+
         // Fetch purposes for each user-paper combination
         const purposesByUserAndPaper: Record<string, ReadPurpose[]> = {};
         for (const userId of selectedAnalyticsUsersId) {
@@ -101,7 +111,7 @@ export const AnalysisPanel = () => {
                 }
             }
         }
-        
+
         let maxDuration = 0;
         Object.values(sessionsByUserAndPaper).forEach((sessions) => {
             const totalDuration = sessions.reduce((acc, session) => acc + session.duration, 0);
@@ -255,75 +265,6 @@ export const AnalysisPanel = () => {
         }
     };
 
-    const renderSelectionSummary = () => {
-        if (selectedAnalyticsPapersId.length === 0 && selectedAnalyticsUsersId.length === 0) {
-            return (
-                <Paper sx={{ p: 2, mb: 2, backgroundColor: 'background.default', border: '1px dashed', borderColor: 'divider' }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
-                        No papers or users selected for analytics. Use the left panel to select items.
-                    </Typography>
-                </Paper>
-            );
-        }
-
-        return (
-            <Paper sx={{ p: 2, mb: 2, backgroundColor: 'background.default' }}>
-                <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold' }}>
-                    Selected for Analysis
-                </Typography>
-                
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {/* Selected Papers */}
-                    <Box>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                            Papers ({selectedAnalyticsPapersId.length})
-                        </Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                            {selectedAnalyticsPapersId.map(paperId => (
-                                <Chip
-                                    key={paperId}
-                                    label={papersDict[paperId]?.title || 'Unknown Paper'}
-                                    icon={<Article />}
-                                    onDelete={() => togglePaperForAnalytics(paperId)}
-                                    deleteIcon={<Close />}
-                                    size="small"
-                                    variant="outlined"
-                                    color="primary"
-                                    sx={{ maxWidth: '200px' }}
-                                />
-                            ))}
-                        </Box>
-                    </Box>
-
-                    {/* Selected Users - only show for teachers */}
-                    {isTeacher && selectedAnalyticsUsersId.length > 0 && (
-                        <Box>
-                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                                Students ({selectedAnalyticsUsersId.length})
-                            </Typography>
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                {selectedAnalyticsUsersId.map(userId => (
-                                    <Chip
-                                        key={userId}
-                                        label={usersDict[userId]?.name || 'Unknown User'}
-                                        icon={<Person />}
-                                        onDelete={() => toggleUserForAnalytics(userId)}
-                                        deleteIcon={<Close />}
-                                        size="small"
-                                        variant="outlined"
-                                        color="secondary"
-                                        sx={{ maxWidth: '200px' }}
-                                    />
-                                ))}
-                            </Box>
-                        </Box>
-                    )}
-                </Box>
-            </Paper>
-        );
-    };
-
-    // Timeline code remains the same...
     const drawTimelineGraph = () => {
         const container = d3.select("#timeline-container");
         if (!container) return;
@@ -333,10 +274,11 @@ export const AnalysisPanel = () => {
         const containerHeight = node.clientHeight;
 
         const margin = { top: 20, right: 20, bottom: 20, left: 20 };
-        const titleOffset = 35;
+        const titleOffsetX = 45;
+        const titleOffsetY = 35;
 
-        const chartWidth = containerWidth - margin.left - margin.right - titleOffset;
-        const chartHeight = containerHeight - margin.top - margin.bottom - titleOffset;
+        const chartWidth = containerWidth - margin.left - margin.right - titleOffsetX;
+        const chartHeight = containerHeight - margin.top - margin.bottom - titleOffsetY;
 
         container.selectAll("svg").remove();
         const svg = container.append("svg")
@@ -345,19 +287,22 @@ export const AnalysisPanel = () => {
 
         // draw x axis title
         svg.append("text")
-            .attr("x", margin.left + chartWidth / 2)
+            .attr("x", margin.left + titleOffsetX + chartWidth / 2)
             .attr("y", margin.top)
+            .attr("text-anchor", "middle")
+            .attr("font-size", "14px")
             .text("Time (minutes)");
 
         // draw y axis title
         svg.append("text")
-            .text("Paper Position (%)")
-            .attr("transform", `translate(${margin.top}, ${margin.left + chartWidth / 2}) rotate(-90)`)
-            .attr("text-anchor", "middle");
+            .attr("transform", `translate(${margin.left}, ${margin.top + titleOffsetY + chartHeight / 2}) rotate(-90)`)
+            .attr("text-anchor", "middle")
+            .attr("font-size", "14px")
+            .text("Page Number (%)");
 
         // draw the chart
         const chart = svg.append("g")
-            .attr("transform", `translate(${margin.left + titleOffset}, ${margin.top + titleOffset})`)
+            .attr("transform", `translate(${margin.left + titleOffsetX}, ${margin.top + titleOffsetY})`)
             .attr("width", chartWidth)
             .attr("height", chartHeight);
 
@@ -395,37 +340,35 @@ export const AnalysisPanel = () => {
             const [userId, paperId] = key.split("_");
 
             const timelineGroup = chart.append("g")
-                .attr("id", `reading-timeline-${userId}-${paperId}`)
-                .attr("class", "reading-timeline");
+                .attr("id", `timeline_${userId}_${paperId}`);
 
             let durationIntercept = 0;
 
             const highlights = userPaperHighlights[`${userId}_${paperId}`] || [];
 
-            sessions.forEach(session => {
+            sessions.sort((a, b) => a.startTime - b.startTime).forEach(session => {
                 const scrollSequence = session.scrollSequence.map((scrollPosPercentage, index) => {
                     const timestamp = index * UPDATE_INTERVAL + durationIntercept;
                     return [timestamp, scrollPosPercentage * 100];
                 }) as [number, number][];
 
                 const sessionGroup = timelineGroup.append("g")
-                    .attr("id", `reading-session-${session.id}`)
-                    .attr("class", "reading-session");
+                    .attr("id", `read_session_${session.id}`)
 
                 sessionGroup.append("path")
-                    .attr("id", `reading-session-path-${session.id}`)
+                    .attr("id", `path_${session.readPurposeId}_${session.id}`)
                     .attr("d", line(scrollSequence))
                     .attr("fill", "none")
                     .attr("stroke", "grey")
-                    .attr("stroke-width", 2);
+                    .attr("stroke-width", 1.5);
 
                 highlights.filter(highlight => highlight.sessionId === session.id).forEach(highlight => {
                     const relativeTime = highlight.timestamp - session.startTime + durationIntercept;
                     sessionGroup.append("circle")
-                        .attr("class", `highlight-circle-${highlight.readPurposeId}`)
+                        .attr("id", `highlight_${highlight.id}`)
                         .attr("cx", xScale(relativeTime))
                         .attr("cy", yScale(highlight.posPercentage * 100))
-                        .attr("r", 3)
+                        .attr("r", 2)
                         .attr("fill", showHighlights ? HIGHLIGHT_COLOR : "none")
                         .attr("stroke", "none")
                         .attr("stroke-width", 0.5);
@@ -434,37 +377,60 @@ export const AnalysisPanel = () => {
                 durationIntercept += session.duration;
             });
         });
+
+        updateTimelineChart();
     }
 
     const updateTimelineChart = () => {
-        if (Object.keys(usersDict).length === 0 || Object.keys(papersDict).length === 0) return;
+        if (Object.keys(userPaperReadSessions).length === 0) return;
 
         Object.entries(userPaperReadSessions).forEach(([key, _sessions]) => {
             const [userId, paperId] = key.split("_");
-            updateVisibility(userId, paperId, selectedAnalyticsUsersId.includes(userId) && selectedAnalyticsPapersId.includes(paperId));
+            updateVisibility(userId, paperId);
         });
     }
 
-    const updateVisibility = (userId: string, paperId: string, isShown: boolean) => {
-        const g = d3.select(`#reading-timeline-${userId}-${paperId}`);
+    const updateVisibility = (userId: string, paperId: string) => {
+        const g = d3.select(`#timeline_${userId}_${paperId}`);
         if (!g) return;
 
-        if (isShown) {
-            g.selectAll("path").each((_d, i, nodes) => {
-                const path = d3.select(nodes[i]);
-                path.attr("stroke", "grey");
-            });
-            g.selectAll("circle").each((_d, i, nodes) => {
-                const circle = d3.select(nodes[i]);
-                circle
-                    .attr("fill", showHighlights ? HIGHLIGHT_COLOR : "none")
-            });
-        } else {
-            g.selectAll("path")
-                .attr("stroke", "none");
-            g.selectAll("circle")
-                .attr("fill", "none")
+        let isHighlighted = true;
+
+        switch (analyticsLevel) {
+            default:
+            case 'papers':
+                break;
+            case 'users':
+                // gray out the read pass that not belong to this paper
+                isHighlighted = selectedPaper === paperId;
+                break;
+            case 'purposes':
+                // gray out the read pass that not belong to this paper and this user
+                isHighlighted = selectedPaper === paperId && selectedUser === userId;
+                break;
         }
+
+        g.selectAll("path").each((_d, i, nodes) => {
+            const path = d3.select(nodes[i]);
+
+            if (isHighlighted) {
+                if (analyticsLevel === 'purposes') {
+                    const purposeId = path.attr("id").split("_")[1];
+                    const color = userPaperPurposes[`${userId}_${paperId}`].find(p => p.id === purposeId)?.color;
+                    path.attr("stroke", color || "grey");
+                } else {
+                    path.attr("stroke", "grey");
+                }
+            } else {
+                path.attr("stroke", "lightgrey");
+            }
+        });
+
+        g.selectAll("circle").each((_d, i, nodes) => {
+            const circle = d3.select(nodes[i]);
+            circle
+                .attr("fill", (isHighlighted && showHighlights) ? HIGHLIGHT_COLOR : "none")
+        });
     }
 
     const renderAnalyticsContent = () => {
@@ -667,78 +633,131 @@ export const AnalysisPanel = () => {
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-            {/* Selection Summary - At the very top */}
-            <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-                {renderSelectionSummary()}
-            </Box>
+            {(selectedAnalyticsUsersId.length === 0 || selectedAnalyticsPapersId.length === 0) && (
+                <Box sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: '100%',
+                    textAlign: 'center',
+                    p: 4
+                }}>
+                    <Box sx={{
+                        p: 4,
+                        borderRadius: 3,
+                        backgroundColor: 'background.paper',
+                        border: '2px dashed',
+                        borderColor: 'divider',
+                        maxWidth: '400px',
+                        width: '100%'
+                    }}>
+                        <Analytics sx={{
+                            fontSize: '4rem',
+                            color: 'text.secondary',
+                            mb: 2,
+                            opacity: 0.7
+                        }} />
 
-            {/* Timeline Section - Middle 50% */}
-            <Box sx={{ height: '50%', p: 2, borderBottom: 1, borderColor: 'divider' }}>
-                <Typography variant="h6" sx={{ mb: 2 }}>
-                    Reading Timeline
-                </Typography>
-                <FormControlLabel
-                    control={<Checkbox
-                        checked={showHighlights}
-                        onChange={() => setShowHighlights(!showHighlights)}
-                    />}
-                    label="Show Highlights"
-                />
-                <Box id="timeline-container" sx={{ width: '100%', height: 'calc(100% - 80px)' }} />
-            </Box>
+                        <Typography variant="h6" sx={{
+                            mb: 2,
+                            color: 'text.primary',
+                            fontWeight: 'medium'
+                        }}>
+                            Ready for Analytics
+                        </Typography>
 
-            {/* Analytics Section - Bottom 50% */}
-            <Box sx={{ height: '50%', p: 2, overflow: 'auto' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                    <Typography variant="h6">
-                        Reading Analytics Explorer
-                    </Typography>
-                    <Typography variant="body2" color="primary">
-                        Total Time: {formatTime(totalTime)}
-                    </Typography>
+                        <Typography variant="body1" color="text.secondary" sx={{
+                            lineHeight: 1.6,
+                            mb: 2
+                        }}>
+                            Select papers and users from the left panel to begin analyzing reading patterns and insights.
+                        </Typography>
+                    </Box>
                 </Box>
+            )}
 
-                {/* Breadcrumbs */}
-                <Breadcrumbs sx={{ mb: 2 }}>
-                    <Link
-                        component="button"
-                        underline={analyticsLevel === 'papers' ? 'none' : 'hover'}
-                        onClick={() => handleBreadcrumbClick('papers')}
-                        sx={{ fontWeight: analyticsLevel === 'papers' ? 'bold' : 'normal' }}
-                    >
-                        Papers
-                    </Link>
-                    {selectedPaper && (
-                        <Link
-                            component="button"
-                            underline={analyticsLevel === 'users' ? 'none' : 'hover'}
-                            onClick={() => handleBreadcrumbClick('users')}
-                            sx={{ fontWeight: analyticsLevel === 'users' ? 'bold' : 'normal' }}
-                        >
-                            {papersDict[selectedPaper]?.title || 'Paper'} Users
-                        </Link>
-                    )}
-                    {selectedUser && selectedPaper && (
-                        <Typography color="text.primary" sx={{ fontWeight: 'bold' }}>
-                            {usersDict[selectedUser]?.name || 'User'} Purposes
+            {(selectedAnalyticsUsersId.length > 0 && selectedAnalyticsPapersId.length > 0) && (
+                <>
+                    {/* Timeline Section - Middle 50% */}
+                    < Box sx={{ boxSizing: 'border-box', height: '50%', p: 2, borderBottom: 1, borderColor: 'divider' }}>
+                        <Typography variant="h6" sx={{ mb: 2 }}>
+                            Reading Timeline
                         </Typography>
-                    )}
-                </Breadcrumbs>
+                        <FormControlLabel
+                            control={<Checkbox
+                                checked={showHighlights}
+                                onChange={() => setShowHighlights(!showHighlights)}
+                            />}
+                            label="Show Highlights"
+                        />
 
-                {/* Analytics Content */}
-                {renderAnalyticsContent()}
 
-                {/* Empty state */}
-                {((analyticsLevel === 'papers' && paperStats.length === 0) ||
-                  (analyticsLevel === 'users' && userPaperStats.length === 0) ||
-                  (analyticsLevel === 'purposes' && userPurposeStats.length === 0)) && (
-                    <Paper sx={{ p: 3, textAlign: 'center', backgroundColor: 'background.default' }}>
-                        <Typography variant="body2" color="text.secondary">
-                            No data available for the selected criteria.
-                        </Typography>
-                    </Paper>
-                )}
-            </Box>
-        </Box>
+                        {/* Empty state */}
+                        {Object.keys(userPaperReadSessions).length > 0 ?
+                            (
+                                <Box id="timeline-container" sx={{ width: '100%', height: 'calc(100% - 80px)' }} />
+                            ) : (
+                                <Paper sx={{ p: 3, textAlign: 'center', backgroundColor: 'background.default' }}>
+                                    <Typography variant="body2" color="text.secondary">
+                                        No data available for the selected criteria.
+                                    </Typography>
+                                </Paper>
+                            )}
+                    </Box>
+
+                    {/* Analytics Section - Bottom 50% */}
+                    <Box sx={{ boxSizing: 'border-box', height: '50%', p: 2, overflow: 'auto' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                            <Typography variant="h6">
+                                Reading Analytics Explorer
+                            </Typography>
+                            <Typography variant="body2" color="primary">
+                                Total Time: {formatTime(totalTime)}
+                            </Typography>
+                        </Box>
+
+                        {/* Breadcrumbs */}
+                        <Breadcrumbs sx={{ mb: 2 }}>
+                            <Link
+                                component="button"
+                                underline={analyticsLevel === 'papers' ? 'none' : 'hover'}
+                                onClick={() => handleBreadcrumbClick('papers')}
+                                sx={{ fontWeight: analyticsLevel === 'papers' ? 'bold' : 'normal' }}
+                            >
+                                Papers
+                            </Link>
+                            {selectedPaper && (
+                                <Link
+                                    component="button"
+                                    underline={analyticsLevel === 'users' ? 'none' : 'hover'}
+                                    onClick={() => handleBreadcrumbClick('users')}
+                                    sx={{ fontWeight: analyticsLevel === 'users' ? 'bold' : 'normal' }}
+                                >
+                                    {papersDict[selectedPaper]?.title || 'Paper'}
+                                </Link>
+                            )}
+                            {selectedUser && selectedPaper && (
+                                <Typography color="text.primary" sx={{ fontWeight: 'bold' }}>
+                                    {usersDict[selectedUser]?.name || 'User'}
+                                </Typography>
+                            )}
+                        </Breadcrumbs>
+
+                        {/* Analytics Content */}
+                        {renderAnalyticsContent()}
+
+                        {/* Empty state */}
+                        {Object.keys(userPaperReadSessions).length === 0 && (
+                            <Paper sx={{ p: 3, textAlign: 'center', backgroundColor: 'background.default' }}>
+                                <Typography variant="body2" color="text.secondary">
+                                    No data available for the selected criteria.
+                                </Typography>
+                            </Paper>
+                        )}
+                    </Box>
+                </>
+            )}
+        </Box >
     );
 };

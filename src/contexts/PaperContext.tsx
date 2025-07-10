@@ -14,14 +14,13 @@ import {
 // import { useTourContext } from "./TourContext";
 import { PDFViewer } from "pdfjs-dist/types/web/pdf_viewer";
 import { v4 as uuidv4 } from 'uuid';
-import { Canvas, PaperData, ReadHighlight, ReadPurpose, ReadSession, UserData, UserRole, useStorageContext } from "./StorageContext";
+import { Canvas, ReadHighlight, ReadPurpose, ReadSession, useStorageContext } from "./StorageContext";
 import { GoogleGenAI, Type } from "@google/genai";
 import { READING_GOAL_GENERATE_PROMPT, READING_SUGGESTION_SYSTEM_PROMPT } from "../utils/prompts";
+import { useWorkspaceContext } from "./WorkspaceContext";
 
 type PaperContextData = {
   // Paper
-  paperId: string | null;
-  setPaperId: (paperId: string | null) => void;
   paperUrl: string | null;
   setPaperUrl: (paperUrl: string | null) => void;
   generateReadingGoals: () => Promise<ReadSuggestion>;
@@ -64,25 +63,15 @@ type PaperContextData = {
   // Read Log
   readSessions: Record<string, ReadSession>;
   setReadSessions: (readSessions: Record<string, ReadSession>) => void;
+  stopUpdateReadingSession: () => void;
 
   // LLM
   query_gemini: (prompt: string, data: any) => Promise<string>;
 
-  // Mode
-  mode: "reading" | "analyzing";
-  changeMode: (mode: "reading" | "analyzing") => void;
+  // Save
   saving: boolean;
   saveReadingData: () => Promise<void>;
-
-  // Global Data
-  usersDict: Record<string, UserData>;
-  papersDict: Record<string, PaperData>;
-
-  // Analytics Selection
-  selectedAnalyticsPapersId: string[];
-  selectedAnalyticsUsersId: string[];
-  togglePaperForAnalytics: (paperId: string) => void;
-  toggleUserForAnalytics: (userId: string) => void;
+  resetReadingControlStates: () => void;
 };
 
 const PaperContext = createContext<PaperContextData | undefined>(undefined);
@@ -122,22 +111,13 @@ const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 export const PaperContextProvider = ({ children }: { children: React.ReactNode }) => {
   // const { setRunTour } = useTourContext();
-  const { userData, getHighlightsByUsersAndPapers, getPurposesByUserAndPaper, getCanvasUserAndPaper, getSessionsByUsersAndPapers, batchAddPurposes, batchAddHighlights, batchAddSessions, createCanvas, getAllUsers, getAllPapersData } = useStorageContext();
+  const { userData, getHighlightsByUsersAndPapers, getPurposesByUserAndPaper, getCanvasUserAndPaper, getSessionsByUsersAndPapers, batchAddPurposes, batchAddHighlights, batchAddSessions, updateCanvas, getPaperFile } = useStorageContext();
+  const { viewingPaperId } = useWorkspaceContext();
 
   // Mode
-  const [mode, setMode] = useState<"reading" | "analyzing">("reading");
   const [saving, setSaving] = useState(false);
 
-  // Global Data
-  const [usersDict, setUsersDict] = useState<Record<string, UserData>>({});
-  const [papersDict, setPapersDict] = useState<Record<string, PaperData>>({});
-
-  // Analytics Selection
-  const [selectedAnalyticsPapersId, setSelectedAnalyticsPapersId] = useState<string[]>([]);
-  const [selectedAnalyticsUsersId, setSelectedAnalyticsUsersId] = useState<string[]>([]);
-
   // Paper
-  const [paperId, setPaperId] = useState<string | null>(null);
   const [paperUrl, setPaperUrl] = useState<string | null>(null);
   const [highlights, setHighlights] = useState<Array<ReadHighlight>>([]);
   const [chronologicalSeq, setChronologicalSeq] = useState(0);
@@ -167,39 +147,13 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
   useEffect(() => {
-    loadUsersAndPapers();
-  }, [userData]);
-
-  const loadUsersAndPapers = async () => {
-    if (!userData) return;
-
-    if (userData.role === UserRole.STUDENT) {
-      setUsersDict({
-        [userData.id]: userData,
-      });
-    }
-    else {
-      const users = await getAllUsers(UserRole.STUDENT);
-      setUsersDict(users.reduce((acc, user) => {
-        acc[user.id] = user;
-        return acc;
-      }, {} as Record<string, UserData>));
-    }
-
-    // TODO: only load papers that the user has access to
-    const papers = await getAllPapersData();
-    setPapersDict(papers.reduce((acc, paper) => {
-      acc[paper.id] = paper;
-      return acc;
-    }, {} as Record<string, PaperData>));
-  }
-
-
-  useEffect(() => {
+    if (!viewingPaperId) return;
+    console.log("load Paper Context", viewingPaperId);
+    loadPaperPDF();
     loadPaperContext();
-  }, [paperId]);
+  }, [viewingPaperId]);
 
-  const resetControlStates = () => {
+  const resetReadingControlStates = () => {
     setCurrentReadId("");
     setCurrentSessionId("");
     currentSessionIdRef.current = null;
@@ -214,21 +168,31 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     setEdges([]);
     setDisplayedReads([]);
     setReadSessions({});
-    resetControlStates();
+    resetReadingControlStates();
   };
 
-  const loadPaperContext = async () => {
-    if (userData && paperId) {
-      const highlightsByUserAndPaper = await getHighlightsByUsersAndPapers([userData.id], [paperId]);
-      const highlights = highlightsByUserAndPaper[`${userData.id}_${paperId}`] || [];
+  const loadPaperPDF = async () => {
+    if (!viewingPaperId) return;
+    try {
+      const paperUrl = await getPaperFile(viewingPaperId);
+      setPaperUrl(paperUrl);
+    } catch (error) {
+      console.error('Error fetching paper file:', error);
+    }
+  }
 
-      const purposes = await getPurposesByUserAndPaper(userData.id, paperId);
+  const loadPaperContext = async () => {
+    if (userData && viewingPaperId) {
+      const highlightsByUserAndPaper = await getHighlightsByUsersAndPapers([userData.id], [viewingPaperId]);
+      const highlights = highlightsByUserAndPaper[`${userData.id}_${viewingPaperId}`] || [];
+
+      const purposes = await getPurposesByUserAndPaper(userData.id, viewingPaperId);
       const purposesRecord = purposes.reduce((acc, purpose) => {
         acc[purpose.id] = purpose;
         return acc;
       }, {} as Record<string, ReadPurpose>);
-      const canvas = await getCanvasUserAndPaper(userData.id, paperId);
-      const sessionsByUserAndPaper = await getSessionsByUsersAndPapers([userData.id], [paperId]);
+      const canvas = await getCanvasUserAndPaper(userData.id, viewingPaperId);
+      const sessionsByUserAndPaper = await getSessionsByUsersAndPapers([userData.id], [viewingPaperId]);
 
       if (highlights && purposes && canvas && sessionsByUserAndPaper) {
         // Load stored paper data
@@ -243,13 +207,13 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         setEdges(reactFlowJson.edges as Edge[]);
 
         // Load stored read sessions data
-        const sessions = sessionsByUserAndPaper[`${userData.id}_${paperId}`] || [];
+        const sessions = sessionsByUserAndPaper[`${userData.id}_${viewingPaperId}`] || [];
         setReadSessions(sessions.reduce((acc, session) => {
           acc[session.id] = session;
           return acc;
         }, {} as Record<string, ReadSession>));
 
-        resetControlStates();
+        resetReadingControlStates();
       } else {
         // No reading state data exists - start with fresh state
         resetPaperContext();
@@ -267,21 +231,6 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
       hidden: !displayEdgeTypes.includes(e.type ?? "")
     })));
   }, [displayEdgeTypes]);
-
-  const changeMode = async (newMode: "reading" | "analyzing") => {
-    if (newMode === "reading") {
-      resetControlStates();
-    } else if (newMode === "analyzing") {
-      setSelectedAnalyticsPapersId([paperId!]);
-      setSelectedAnalyticsUsersId([userData!.id]);
-      
-      stopUpdateReadingSession();
-      await saveReadingData();
-      resetControlStates();
-    }
-
-    setMode(newMode);
-  }
 
   const generateReadingGoals = async () => {
     if (!pdfViewerRef.current) return {} as ReadSuggestion;
@@ -333,7 +282,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         ...highlight,
         id: id,
         userId: userData!.id,
-        paperId: paperId!,
+        paperId: viewingPaperId!,
         readPurposeId: currentReadId,
         sessionId: currentSessionId,
         timestamp: Date.now(),
@@ -512,14 +461,14 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   };
 
   const createRead = (title: string, color: string) => {
-    if (!userData || !paperId) return;
+    if (!userData || !viewingPaperId) return;
 
     const newReadId = uuidv4();
     setReadPurposes((prevReadRecords) => ({
       ...prevReadRecords,
       [newReadId]: {
         id: newReadId,
-        paperId: paperId,
+        paperId: viewingPaperId,
         userId: userData.id,
         title,
         color,
@@ -560,7 +509,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
       [sessionId]: {
         id: sessionId,
         userId: userData!.id,
-        paperId: paperId!,
+        paperId: viewingPaperId!,
         readPurposeId: readId,
         startTime: startTime,
         duration: 0,
@@ -662,16 +611,17 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
       await batchAddHighlights(highlights);
       await batchAddSessions(Object.values(readSessions));
 
-      const canvas = {
-        id: uuidv4(),
+      const canvasId = `${userData.id}_${viewingPaperId}`;
+      const canvas: Canvas = {
+        id: canvasId,
         userId: userData.id,
-        paperId: paperId,
+        paperId: viewingPaperId!,
         reactFlowJson: JSON.stringify({
           nodes: nodes,
           edges: edges,
         }),
       }
-      await createCanvas(canvas as Canvas);
+      await updateCanvas(canvas);
 
     } catch (error: any) {
       console.error('Error saving data:', error);
@@ -680,25 +630,6 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
       setSaving(false);
     }
   }
-
-  // Analytics Selection Functions
-  const togglePaperForAnalytics = (paperId: string) => {
-    setSelectedAnalyticsPapersId(prev => {
-      if (prev.includes(paperId)) {
-        return prev.filter(id => id !== paperId);
-      }
-      return [...prev, paperId];
-    });
-  };
-
-  const toggleUserForAnalytics = (userId: string) => {
-    setSelectedAnalyticsUsersId(prev => {
-      if (prev.includes(userId)) {
-        return prev.filter(id => id !== userId);
-      }
-      return [...prev, userId];
-    });
-  };
 
   const query_gemini = async (prompt: string, data?: any) => {
     const response = await ai.models.generateContent({
@@ -740,8 +671,6 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     <PaperContext.Provider
       value={{
         // Paper
-        paperId,
-        setPaperId,
         paperUrl,
         setPaperUrl,
         generateReadingGoals,
@@ -781,21 +710,12 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         // Read Log
         readSessions,
         setReadSessions,
+        stopUpdateReadingSession,
         // LLM
         query_gemini,
-        // Mode
-        mode,
-        changeMode,
         saving,
         saveReadingData,
-        // Global Data
-        usersDict,
-        papersDict,
-        // Analytics Selection
-        selectedAnalyticsPapersId,
-        selectedAnalyticsUsersId,
-        togglePaperForAnalytics,
-        toggleUserForAnalytics,
+        resetReadingControlStates,
       }}
     >
       {children}

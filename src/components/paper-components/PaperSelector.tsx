@@ -1,139 +1,62 @@
-import { 
-    Box, 
-    Typography, 
-    TextField, 
-    List, 
-    ListItem, 
-    ListItemButton, 
-    ListItemText, 
-    InputAdornment, 
-    Chip,
+import {
+    Box,
+    Typography,
+    TextField,
+    List,
+    ListItem,
+    ListItemButton,
+    ListItemText,
+    InputAdornment,
     Divider,
-    CircularProgress,
     IconButton,
-    Button,
-    Checkbox,
-    FormControlLabel
 } from "@mui/material";
-import { Search, Description, Analytics, Add, Check, Person } from "@mui/icons-material";
+import { Search, Description, Check, Person, CheckBox as CheckboxIcon, CheckBoxOutlineBlank } from "@mui/icons-material";
 import { useState, useEffect } from "react";
 import { PaperData, UserData, UserRole, useStorageContext } from "../../contexts/StorageContext";
-import { usePaperContext } from "../../contexts/PaperContext";
+import { MODE_TYPES, useWorkspaceContext } from "../../contexts/WorkspaceContext";
+import { useAnalysisContext } from "../../contexts/AnalysisContext";
 
-interface PaperSelectorProps {
-    selectedPaperId: string | null;
-    onPaperSelect: (paperId: string, paperUrl?: string) => void;
-    // Analytics selection props
-    selectedPapersForAnalytics?: string[];
-    selectedUsersForAnalytics?: string[];
-    onAnalyticsPaperToggle?: (paperId: string) => void;
-    onAnalyticsUserToggle?: (userId: string) => void;
-}
 
-export const PaperSelector = ({ 
-    selectedPaperId, 
-    onPaperSelect,
-    selectedPapersForAnalytics = [],
-    selectedUsersForAnalytics = [],
-    onAnalyticsPaperToggle,
-    onAnalyticsUserToggle
-}: PaperSelectorProps) => {
-    const { getAllPapersData, getPaperFile, userData, getAllUsers } = useStorageContext();
-    const { mode } = usePaperContext();
-    
-    const [papers, setPapers] = useState<PaperData[]>([]);
-    const [users, setUsers] = useState<UserData[]>([]);
+export const PaperSelector = () => {
+    const { userData } = useStorageContext();
+    const { selectedAnalyticsPapersId, togglePaperForAnalytics, toggleUserForAnalytics, selectedAnalyticsUsersId } = useAnalysisContext();
+    const { mode, papersDict, usersDict, viewingPaperId, setViewingPaperId } = useWorkspaceContext();
+
     const [searchQuery, setSearchQuery] = useState('');
     const [userSearchQuery, setUserSearchQuery] = useState('');
     const [filteredPapers, setFilteredPapers] = useState<PaperData[]>([]);
     const [filteredUsers, setFilteredUsers] = useState<UserData[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    const isAnalyzeMode = mode === "analyzing";
-    const isTeacher = userData?.role === UserRole.TEACHER;
-    const showUserSelector = isAnalyzeMode && isTeacher;
-
-    useEffect(() => {
-        loadData();
-    }, []);
 
     useEffect(() => {
         // Filter papers based on search query
-        const filtered = papers.filter(paper =>
+        const filtered = Object.values(papersDict).filter(paper =>
             paper.title.toLowerCase().includes(searchQuery.toLowerCase())
         );
         setFilteredPapers(filtered);
-    }, [searchQuery, papers]);
+    }, [searchQuery]);
 
     useEffect(() => {
         // Filter users based on search query
-        const filtered = users.filter(user =>
+        const filtered = Object.values(usersDict).filter(user =>
             user.name.toLowerCase().includes(userSearchQuery.toLowerCase())
         );
         setFilteredUsers(filtered);
-    }, [userSearchQuery, users]);
-
-    const loadData = async () => {
-        try {
-            setLoading(true);
-            const papersData = await getAllPapersData();
-            setPapers(papersData);
-            setFilteredPapers(papersData);
-
-            // Load users if teacher and in analyze mode
-            if (isTeacher && isAnalyzeMode) {
-                const usersData = await getAllUsers(UserRole.STUDENT);
-                setUsers(usersData);
-                setFilteredUsers(usersData);
-            }
-        } catch (error) {
-            console.error('Error loading data:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handlePaperSelect = async (paper: PaperData) => {
-        try {
-            const paperUrl = await getPaperFile(paper.id);
-            onPaperSelect(paper.id, paperUrl);
-        } catch (error) {
-            console.error('Error loading paper file:', error);
-            onPaperSelect(paper.id);
-        }
-    };
+    }, [userSearchQuery]);
 
     const handleAnalyticsPaperToggle = (paperId: string) => {
-        if (onAnalyticsPaperToggle) {
-            onAnalyticsPaperToggle(paperId);
-        }
+        togglePaperForAnalytics(paperId);
     };
 
     const handleAnalyticsUserToggle = (userId: string) => {
-        if (onAnalyticsUserToggle) {
-            onAnalyticsUserToggle(userId);
-        }
+        toggleUserForAnalytics(userId);
     };
 
-    if (loading) {
-        return (
-            <Box sx={{ 
-                display: 'flex', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                height: '200px' 
-            }}>
-                <CircularProgress />
-            </Box>
-        );
-    }
-
     const renderPaperList = () => (
-        <Box sx={{ flex: showUserSelector ? '1 1 60%' : '1 1 100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <Box sx={{ flex: (mode === MODE_TYPES.ANALYZING && userData?.role === UserRole.TEACHER) ? '1 1 50%' : '1 1 100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <Typography variant="h6" sx={{ mb: 2, color: 'text.primary' }}>
-                {isAnalyzeMode ? 'Papers for Analysis' : 'Select Paper to Read'}
+                Paper List
             </Typography>
-            
+
             <TextField
                 placeholder="Search papers..."
                 value={searchQuery}
@@ -154,9 +77,9 @@ export const PaperSelector = ({
                 <Typography variant="body2" color="text.secondary">
                     {filteredPapers.length} paper{filteredPapers.length !== 1 ? 's' : ''} available
                 </Typography>
-                {isAnalyzeMode && (
+                {mode === MODE_TYPES.ANALYZING && (
                     <Typography variant="body2" color="primary">
-                        {selectedPapersForAnalytics.length} selected
+                        {selectedAnalyticsPapersId.length} selected
                     </Typography>
                 )}
             </Box>
@@ -166,34 +89,38 @@ export const PaperSelector = ({
             <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
                 <List sx={{ p: 0 }}>
                     {filteredPapers.map((paper) => {
-                        const isSelected = selectedPaperId === paper.id;
-                        const isSelectedForAnalytics = selectedPapersForAnalytics.includes(paper.id);
+                        const isSelected = viewingPaperId === paper.id;
+                        const isSelectedForAnalytics = selectedAnalyticsPapersId.includes(paper.id);
 
                         return (
                             <ListItem key={paper.id} sx={{ p: 0, mb: 1 }}>
                                 <Box sx={{ width: '100%', display: 'flex', gap: 1 }}>
                                     {/* Main paper button */}
-                                    <ListItemButton
-                                        onClick={() => handlePaperSelect(paper)}
-                                        selected={isSelected}
-                                        sx={{
-                                            borderRadius: 1,
-                                            border: isSelected ? '2px solid' : '1px solid',
-                                            borderColor: isSelected ? 'primary.main' : 'divider',
-                                            flex: 1,
-                                            '&:hover': {
-                                                borderColor: 'primary.main',
-                                            }
-                                        }}
-                                    >
-                                        <Box sx={{ width: '100%' }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                                                <Description 
-                                                    sx={{ 
-                                                        color: 'text.secondary', 
+                                    <Box sx={{ position: 'relative', flex: 1 }}>
+                                        <ListItemButton
+                                            onClick={() => setViewingPaperId(paper.id)}
+                                            selected={isSelected}
+                                            sx={{
+                                                borderRadius: 1,
+                                                border: isSelected ? '2px solid' : '1px solid',
+                                                borderColor: isSelected ? 'primary.main' : 'divider',
+                                                flex: 1,
+                                                '&:hover': {
+                                                    borderColor: 'primary.main',
+                                                },
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 1
+                                            }}
+                                        >
+                                            {/* Main content area */}
+                                            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, flexGrow: 1, minWidth: 0 }}>
+                                                <Description
+                                                    sx={{
+                                                        color: 'text.secondary',
                                                         fontSize: '1.2rem',
-                                                        mt: 0.5 
-                                                    }} 
+                                                        mt: 0.5
+                                                    }}
                                                 />
                                                 <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                                                     <ListItemText
@@ -207,50 +134,41 @@ export const PaperSelector = ({
                                                             }
                                                         }}
                                                     />
-                                                    {isSelectedForAnalytics && (
-                                                        <Chip 
-                                                            label="In Analytics" 
-                                                            size="small" 
-                                                            color="primary" 
-                                                            sx={{ fontSize: '0.7rem', height: '20px' }}
-                                                        />
-                                                    )}
                                                 </Box>
                                             </Box>
-                                        </Box>
-                                    </ListItemButton>
-
-                                    {/* Analytics toggle button - only in analyze mode */}
-                                    {isAnalyzeMode && (
-                                        <IconButton
-                                            onClick={() => handleAnalyticsPaperToggle(paper.id)}
-                                            sx={{
-                                                border: '1px solid',
-                                                borderColor: isSelectedForAnalytics ? 'primary.main' : 'divider',
-                                                backgroundColor: isSelectedForAnalytics ? 'primary.main' : 'transparent',
-                                                color: isSelectedForAnalytics ? 'white' : 'text.secondary',
-                                                '&:hover': {
-                                                    borderColor: 'primary.main',
-                                                    backgroundColor: isSelectedForAnalytics ? 'primary.dark' : 'action.hover'
-                                                },
-                                                width: 40,
-                                                height: 40
-                                            }}
-                                        >
-                                            {isSelectedForAnalytics ? <Check /> : <Add />}
-                                        </IconButton>
-                                    )}
+                                            {/* Analytics toggle button - only in analyze mode */}
+                                            {mode === MODE_TYPES.ANALYZING && (
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleAnalyticsPaperToggle(paper.id);
+                                                    }}
+                                                    sx={{
+                                                        p: 0,
+                                                        flexShrink: 0,
+                                                        color: isSelectedForAnalytics ? 'primary.main' : 'text.secondary',
+                                                        '&:focus': {
+                                                            outline: 'none',
+                                                        },
+                                                    }}
+                                                >
+                                                    {isSelectedForAnalytics ? <CheckboxIcon fontSize="small" /> : <CheckBoxOutlineBlank fontSize="small" />}
+                                                </IconButton>
+                                            )}
+                                        </ListItemButton>
+                                    </Box>
                                 </Box>
                             </ListItem>
                         );
                     })}
                 </List>
 
-                {filteredPapers.length === 0 && !loading && (
-                    <Box sx={{ 
-                        display: 'flex', 
-                        justifyContent: 'center', 
-                        alignItems: 'center', 
+                {filteredPapers.length === 0 && (
+                    <Box sx={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
                         height: '100px',
                         color: 'text.secondary'
                     }}>
@@ -264,18 +182,18 @@ export const PaperSelector = ({
     );
 
     const renderUserList = () => {
-        if (!showUserSelector) return null;
+        if (mode !== MODE_TYPES.ANALYZING || userData?.role !== UserRole.TEACHER) return null;
 
         return (
             <>
                 <Divider sx={{ my: 2 }} />
-                <Box sx={{ flex: '1 1 40%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                <Box sx={{ flex: '1 1 50%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                     <Typography variant="h6" sx={{ mb: 2, color: 'text.primary' }}>
-                        Students for Analysis
+                        User List
                     </Typography>
-                    
+
                     <TextField
-                        placeholder="Search students..."
+                        placeholder="Search users..."
                         value={userSearchQuery}
                         onChange={(e) => setUserSearchQuery(e.target.value)}
                         InputProps={{
@@ -292,10 +210,10 @@ export const PaperSelector = ({
 
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
                         <Typography variant="body2" color="text.secondary">
-                            {filteredUsers.length} student{filteredUsers.length !== 1 ? 's' : ''} available
+                            {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''} available
                         </Typography>
                         <Typography variant="body2" color="primary">
-                            {selectedUsersForAnalytics.length} selected
+                            {selectedAnalyticsUsersId.length} selected
                         </Typography>
                     </Box>
 
@@ -304,7 +222,7 @@ export const PaperSelector = ({
                     <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
                         <List sx={{ p: 0 }}>
                             {filteredUsers.map((user) => {
-                                const isSelectedForAnalytics = selectedUsersForAnalytics.includes(user.id);
+                                const isSelectedForAnalytics = selectedAnalyticsUsersId.includes(user.id);
 
                                 return (
                                     <ListItem key={user.id} sx={{ p: 0, mb: 1 }}>
@@ -324,11 +242,11 @@ export const PaperSelector = ({
                                             >
                                                 <Box sx={{ width: '100%' }}>
                                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                        <Person 
-                                                            sx={{ 
+                                                        <Person
+                                                            sx={{
                                                                 color: isSelectedForAnalytics ? 'primary.main' : 'text.secondary',
                                                                 fontSize: '1.2rem'
-                                                            }} 
+                                                            }}
                                                         />
                                                         <Box sx={{ flexGrow: 1 }}>
                                                             <ListItemText
@@ -358,16 +276,16 @@ export const PaperSelector = ({
                             })}
                         </List>
 
-                        {filteredUsers.length === 0 && !loading && (
-                            <Box sx={{ 
-                                display: 'flex', 
-                                justifyContent: 'center', 
-                                alignItems: 'center', 
+                        {filteredUsers.length === 0 && (
+                            <Box sx={{
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center',
                                 height: '100px',
                                 color: 'text.secondary'
                             }}>
                                 <Typography variant="body2">
-                                    {userSearchQuery ? 'No students match your search' : 'No students available'}
+                                    {userSearchQuery ? 'No users match your search' : 'No users available'}
                                 </Typography>
                             </Box>
                         )}

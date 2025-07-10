@@ -77,7 +77,6 @@ type StorageContextData = {
     getAllUsers: (role?: UserRole) => Promise<UserData[]>;
     getUserById: (id: string) => Promise<UserData | null>;
     getUserByEmail: (email: string) => Promise<UserData | null>;
-    addUser: (userData: UserData) => Promise<void>;
     updateUser: (userData: UserData) => Promise<void>;
     addPaperToUser: (userId: string, paperId: string) => Promise<void>;
     getAllPapersData: () => Promise<PaperData[]>;
@@ -88,8 +87,7 @@ type StorageContextData = {
     
     // Canvas Functions
     getCanvasUserAndPaper: (userId: string, paperId: string) => Promise<Canvas | null>;
-    createCanvas: (canvasData: Canvas) => Promise<string>;
-    updateCanvas: (canvasId: string, updates: Partial<Canvas>) => Promise<void>;
+    updateCanvas: (canvasData: Canvas) => Promise<void>;
 
     // Highlight Functions
     getHighlightsByUser: (userId: string) => Promise<ReadHighlight[]>;
@@ -180,16 +178,6 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
         return querySnapshot.docs[0].data() as UserData;
     }
 
-    // add user data
-    const addUser = async (userData: UserData) => {
-        try {
-            await setDoc(doc(usersCollectionRef, userData.id), userData);
-            console.log('User added with ID:', userData.id);
-        } catch (error) {
-            console.error('Error adding user:', error);
-        }
-    }
-
     // update user data
     const updateUser = async (userData: UserData) => {
         try {
@@ -268,14 +256,8 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
         return querySnapshot.docs.map(doc => doc.data() as Canvas)[0];
     }
 
-    const createCanvas = async (canvasData: Canvas): Promise<string> => {
+    const updateCanvas = async (canvasData: Canvas): Promise<void> => {
         await setDoc(doc(canvasesCollectionRef, canvasData.id), canvasData);
-        return canvasData.id;
-    }
-
-    const updateCanvas = async (canvasId: string, updates: Partial<Canvas>): Promise<void> => {
-        const canvasRef = doc(canvasesCollectionRef, canvasId);
-        await setDoc(canvasRef, updates, { merge: true });
     }
 
     // Highlight Functions
@@ -422,7 +404,6 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
                 getAllUsers,
                 getUserById,
                 getUserByEmail,
-                addUser,
                 updateUser,
                 addPaperToUser,
                 getAllPapersData,
@@ -431,7 +412,6 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
                 getPaperFile,
                 addPaperFile,
                 getCanvasUserAndPaper,
-                createCanvas,
                 updateCanvas,
                 getHighlightsByUser,
                 getHighlightsByPaper,
