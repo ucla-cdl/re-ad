@@ -53,7 +53,7 @@ export default function ThemeNode({ data }: NodeProps<Node>) {
           type="source" isConnectableStart={false}
         />
 
-        <Typography variant="h5" sx={{ fontWeight: 'bold' }}>{label}</Typography>
+        <Typography variant="h5" sx={{ fontWeight: '600', textAlign: 'center' }}>{label}</Typography>
       </Box>
     </Box>
   );

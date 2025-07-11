@@ -1,6 +1,5 @@
 .graph-node {
     border-radius: 5px;
-    border: 1px solid black;
     color: black;
     text-transform: none !important;
     box-sizing: border-box;
@@ -14,27 +13,25 @@
 }
 
 .graph-node.selected {
-    filter: brightness(0.90);
-    border: 2px solid black;
+    border: 3px solid black;
     box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.5);
 }
 
 .graph-node.selected:not(:only-child) {
-    filter: brightness(0.90);
-    border: 2px solid black;
+    border: 3px solid black;
     box-shadow: 0 0 10px 0 rgba(0, 122, 204, 0.6);
 }
 
 .graph-node.target {
-    filter: brightness(1.1);
     border: 2px solid black;
     box-shadow: 0 0 10px 0 rgba(0, 122, 204, 0.6);
 }
 
 .highlight-node {
     max-width: 150px;
-    font-weight: bold;
     padding: 15px;
+    border: 1.5px solid black;
+    filter: saturate(0.8) brightness(1.25);
 }
 
 .overview-node {
@@ -44,10 +41,12 @@
 }
 
 .theme-node {
-    max-width: 350px;
+    min-width: 350px;
+    max-width: 500px;
     font-weight: bold;
     padding: 20px;
-    border-width: 2px;
+    border: 2px solid black;
+    filter: saturate(2) contrast(1.2);
 }
 
 .connection-handle {

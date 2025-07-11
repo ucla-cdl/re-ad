@@ -12,7 +12,6 @@ import {
     TableCell,
     Avatar,
     Stack,
-    Skeleton,
     Paper,
     Dialog,
     DialogTitle,
@@ -74,7 +73,7 @@ export const PapersHub = () => {
     });
 
     const { userData, setUserData, loadUserData, updateUser, getUserByEmail, addPaperData, addPaperFile, addPaperToUser } = useStorageContext();
-    const { papersDict, viewingPaperId, setViewingPaperId } = useWorkspaceContext();
+    const { papersDict, setViewingPaperId } = useWorkspaceContext();
     const navigate = useNavigate();
 
     const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(null);

@@ -23,7 +23,9 @@ export default function HighlightNode({ data }: NodeProps<Node>) {
     <Box
       className={`graph-node highlight-node ${isSelected ? "selected" : ""} ${isTarget ? "target" : ""}`}
       id={`node-${id}`}
-      sx={{ backgroundColor: isDisplayed ? color : "#e6e6e6" }}
+      sx={{ 
+        backgroundColor: isDisplayed ? color : "#e6e6e6",
+      }}
     >
       <Box sx={{ width: "100%", m: 1 }}>
         <Handle

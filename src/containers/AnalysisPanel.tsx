@@ -1,269 +1,45 @@
-import { Box, Checkbox, FormControlLabel, Paper, Typography, Breadcrumbs, Link, Chip } from "@mui/material";
-import { ReadHighlight, ReadSession, useStorageContext, ReadPurpose } from "../contexts/StorageContext";
+import { Box, Paper, Typography, Breadcrumbs, Link, Chip, Switch } from "@mui/material";
 import { useEffect, useState } from "react";
 import * as d3 from "d3";
 import { UPDATE_INTERVAL } from "../contexts/PaperContext";
 import { formatTime } from "../utils/func";
-import { Person, Article, Psychology, Analytics } from "@mui/icons-material";
+import { Person, Article, Psychology, Analytics, Notes } from "@mui/icons-material";
 import { useWorkspaceContext } from "../contexts/WorkspaceContext";
-import { useAnalysisContext } from "../contexts/AnalysisContext";
-
-type PaperStats = {
-    paperId: string;
-    paperTitle: string;
-    totalDuration: number;
-    averageDuration: number;
-    userCount: number;
-    totalHighlights: number;
-    averageHighlights: number;
-};
-
-type UserPaperStats = {
-    userId: string;
-    userName: string;
-    duration: number;
-    highlightCount: number;
-    textHighlightCount: number;
-    imageHighlightCount: number;
-    purposeCount: number;
-    lastReadTime: number;
-};
-
-type UserPurposeStats = {
-    purposeId: string;
-    purposeTitle: string;
-    purposeColor: string;
-    duration: number;
-    highlightCount: number;
-    textHighlightCount: number;
-    imageHighlightCount: number;
-    lastReadTime: number;
-};
-
-type AnalyticsLevel = 'papers' | 'users' | 'purposes';
+import { AnalyticsLevel, useAnalysisContext } from "../contexts/AnalysisContext";
 
 export const AnalysisPanel = () => {
-    const { getSessionsByUsersAndPapers, getHighlightsByUsersAndPapers, getPurposesByUserAndPaper } = useStorageContext();
     const { usersDict, papersDict } = useWorkspaceContext();
-    const { selectedAnalyticsPapersId, selectedAnalyticsUsersId } = useAnalysisContext();
-
-    const [userPaperReadSessions, setUserPaperReadSessions] = useState<Record<string, ReadSession[]>>({});
-    const [userPaperHighlights, setUserPaperHighlights] = useState<Record<string, ReadHighlight[]>>({});
-    const [userPaperPurposes, setUserPaperPurposes] = useState<Record<string, ReadPurpose[]>>({});
-    const [maxDuration, setMaxDuration] = useState(0);
-
-    // Analytics navigation state
-    const [analyticsLevel, setAnalyticsLevel] = useState<AnalyticsLevel>('papers');
-    const [selectedPaper, setSelectedPaper] = useState<string | null>(null);
-    const [selectedUser, setSelectedUser] = useState<string | null>(null);
-
-    // Analytics data
-    const [totalTime, setTotalTime] = useState(0);
-    const [paperStats, setPaperStats] = useState<PaperStats[]>([]);
-    const [userPaperStats, setUserPaperStats] = useState<UserPaperStats[]>([]);
-    const [userPurposeStats, setUserPurposeStats] = useState<UserPurposeStats[]>([]);
+    const {
+        selectedAnalyticsPapersId,
+        selectedAnalyticsUsersId,
+        userPaperReadSessions,
+        userPaperHighlights,
+        userPaperPurposes,
+        maxDuration,
+        analyticsLevel,
+        selectedPaper,
+        selectedUser,
+        handlePaperClick,
+        handleUserClick,
+        handleBreadcrumbClick,
+        totalTime,
+        paperStats,
+        userPaperStats,
+        userPurposeStats
+    } = useAnalysisContext();
 
     const [showHighlights, setShowHighlights] = useState(false);
-    const HIGHLIGHT_COLOR = "black";
+    const HIGHLIGHT_COLOR = "#6cc0f5";
 
     useEffect(() => {
-        if (selectedAnalyticsUsersId.length > 0 && selectedAnalyticsPapersId.length > 0) {
-            fetchData();
+        if (Object.keys(userPaperReadSessions).length > 0) {
+            drawTimelineGraph();
         }
-
-        if (selectedPaper && !selectedAnalyticsPapersId.includes(selectedPaper)) {
-            setSelectedPaper(null);
-            setAnalyticsLevel('papers');
-        } else if (selectedUser && !selectedAnalyticsUsersId.includes(selectedUser)) {
-            setSelectedUser(null);
-            setAnalyticsLevel('users');
-        }
-    }, [selectedAnalyticsUsersId, selectedAnalyticsPapersId]);
-
-    useEffect(() => {
-        if (Object.keys(userPaperReadSessions).length === 0) return;
-        drawTimelineGraph();
     }, [userPaperReadSessions]);
 
     useEffect(() => {
         updateTimelineChart();
     }, [showHighlights, analyticsLevel]);
-
-    useEffect(() => {
-        calculateAnalytics();
-    }, [userPaperReadSessions, userPaperHighlights, userPaperPurposes, selectedAnalyticsUsersId, selectedAnalyticsPapersId, analyticsLevel, selectedPaper, selectedUser]);
-
-    const fetchData = async () => {
-        const sessionsByUserAndPaper = await getSessionsByUsersAndPapers(selectedAnalyticsUsersId, selectedAnalyticsPapersId);
-        const highlightsByUserAndPaper = await getHighlightsByUsersAndPapers(selectedAnalyticsUsersId, selectedAnalyticsPapersId);
-
-        // Fetch purposes for each user-paper combination
-        const purposesByUserAndPaper: Record<string, ReadPurpose[]> = {};
-        for (const userId of selectedAnalyticsUsersId) {
-            for (const paperId of selectedAnalyticsPapersId) {
-                const key = `${userId}_${paperId}`;
-                try {
-                    const purposes = await getPurposesByUserAndPaper(userId, paperId);
-                    purposesByUserAndPaper[key] = purposes;
-                } catch (error) {
-                    console.error(`Error fetching purposes for user ${userId} and paper ${paperId}:`, error);
-                    purposesByUserAndPaper[key] = [];
-                }
-            }
-        }
-
-        let maxDuration = 0;
-        Object.values(sessionsByUserAndPaper).forEach((sessions) => {
-            const totalDuration = sessions.reduce((acc, session) => acc + session.duration, 0);
-            maxDuration = Math.max(maxDuration, totalDuration);
-        });
-        setMaxDuration(maxDuration);
-        setUserPaperReadSessions(sessionsByUserAndPaper);
-        setUserPaperHighlights(highlightsByUserAndPaper);
-        setUserPaperPurposes(purposesByUserAndPaper);
-    }
-
-    const calculateAnalytics = () => {
-        // Calculate total time for selected user-paper combinations
-        let totalTime = 0;
-        const selectedKeys = Object.keys(userPaperReadSessions).filter(key => {
-            const [userId, paperId] = key.split("_");
-            return selectedAnalyticsUsersId.includes(userId) && selectedAnalyticsPapersId.includes(paperId);
-        });
-
-        selectedKeys.forEach(key => {
-            const sessions = userPaperReadSessions[key] || [];
-            totalTime += sessions.reduce((acc, session) => acc + session.duration, 0);
-        });
-        setTotalTime(totalTime);
-
-        if (analyticsLevel === 'papers') {
-            calculatePaperStats(selectedKeys);
-        } else if (analyticsLevel === 'users' && selectedPaper) {
-            calculateUserPaperStats(selectedPaper);
-        } else if (analyticsLevel === 'purposes' && selectedPaper && selectedUser) {
-            calculateUserPurposeStats(selectedUser, selectedPaper);
-        }
-    };
-
-    const calculatePaperStats = (selectedKeys: string[]) => {
-        const paperStatsMap = new Map<string, {
-            totalDuration: number;
-            userCount: number;
-            totalHighlights: number;
-            users: Set<string>;
-        }>();
-
-        selectedKeys.forEach(key => {
-            const [userId, paperId] = key.split("_");
-            const sessions = userPaperReadSessions[key] || [];
-            const highlights = userPaperHighlights[key] || [];
-
-            if (!paperStatsMap.has(paperId)) {
-                paperStatsMap.set(paperId, {
-                    totalDuration: 0,
-                    userCount: 0,
-                    totalHighlights: 0,
-                    users: new Set()
-                });
-            }
-
-            const stats = paperStatsMap.get(paperId)!;
-            stats.totalDuration += sessions.reduce((acc, session) => acc + session.duration, 0);
-            stats.totalHighlights += highlights.length;
-            stats.users.add(userId);
-        });
-
-        const paperStats: PaperStats[] = Array.from(paperStatsMap.entries())
-            .map(([paperId, stats]) => ({
-                paperId,
-                paperTitle: papersDict[paperId]?.title || 'Unknown Paper',
-                totalDuration: stats.totalDuration,
-                averageDuration: stats.users.size > 0 ? stats.totalDuration / stats.users.size : 0,
-                userCount: stats.users.size,
-                totalHighlights: stats.totalHighlights,
-                averageHighlights: stats.users.size > 0 ? stats.totalHighlights / stats.users.size : 0
-            }))
-            .sort((a, b) => b.totalDuration - a.totalDuration);
-
-        setPaperStats(paperStats);
-    };
-
-    const calculateUserPaperStats = (paperId: string) => {
-        const userStats: UserPaperStats[] = [];
-
-        selectedAnalyticsUsersId.forEach(userId => {
-            const key = `${userId}_${paperId}`;
-            const sessions = userPaperReadSessions[key] || [];
-            const highlights = userPaperHighlights[key] || [];
-            const purposes = userPaperPurposes[key] || [];
-
-            if (sessions.length > 0 || highlights.length > 0) {
-                const duration = sessions.reduce((acc, session) => acc + session.duration, 0);
-                const lastReadTime = Math.max(...sessions.map(s => s.startTime + s.duration), 0);
-
-                userStats.push({
-                    userId,
-                    userName: usersDict[userId]?.name || 'Unknown User',
-                    duration,
-                    highlightCount: highlights.length,
-                    textHighlightCount: highlights.filter(h => h.type === 'text').length,
-                    imageHighlightCount: highlights.filter(h => h.type === 'area').length,
-                    purposeCount: purposes.length,
-                    lastReadTime
-                });
-            }
-        });
-
-        setUserPaperStats(userStats.sort((a, b) => b.duration - a.duration));
-    };
-
-    const calculateUserPurposeStats = (userId: string, paperId: string) => {
-        const key = `${userId}_${paperId}`;
-        const sessions = userPaperReadSessions[key] || [];
-        const highlights = userPaperHighlights[key] || [];
-        const purposes = userPaperPurposes[key] || [];
-
-        const purposeStats: UserPurposeStats[] = purposes.map(purpose => {
-            const purposeSessions = sessions.filter(s => s.readPurposeId === purpose.id);
-            const purposeHighlights = highlights.filter(h => h.readPurposeId === purpose.id);
-            const duration = purposeSessions.reduce((acc, session) => acc + session.duration, 0);
-            const lastReadTime = Math.max(...purposeSessions.map(s => s.startTime + s.duration), 0);
-
-            return {
-                purposeId: purpose.id,
-                purposeTitle: purpose.title,
-                purposeColor: purpose.color,
-                duration,
-                highlightCount: purposeHighlights.length,
-                textHighlightCount: purposeHighlights.filter(h => h.type === 'text').length,
-                imageHighlightCount: purposeHighlights.filter(h => h.type === 'area').length,
-                lastReadTime
-            };
-        }).sort((a, b) => b.duration - a.duration);
-
-        setUserPurposeStats(purposeStats);
-    };
-
-    const handlePaperClick = (paperId: string) => {
-        setSelectedPaper(paperId);
-        setAnalyticsLevel('users');
-    };
-
-    const handleUserClick = (userId: string) => {
-        setSelectedUser(userId);
-        setAnalyticsLevel('purposes');
-    };
-
-    const handleBreadcrumbClick = (level: AnalyticsLevel) => {
-        setAnalyticsLevel(level);
-        if (level === 'papers') {
-            setSelectedPaper(null);
-            setSelectedUser(null);
-        } else if (level === 'users') {
-            setSelectedUser(null);
-        }
-    };
 
     const drawTimelineGraph = () => {
         const container = d3.select("#timeline-container");
@@ -365,7 +141,7 @@ export const AnalysisPanel = () => {
                 highlights.filter(highlight => highlight.sessionId === session.id).forEach(highlight => {
                     const relativeTime = highlight.timestamp - session.startTime + durationIntercept;
                     sessionGroup.append("circle")
-                        .attr("id", `highlight_${highlight.id}`)
+                        .attr("id", `highlight_${session.readPurposeId}_${session.id}_${highlight.id}`)
                         .attr("cx", xScale(relativeTime))
                         .attr("cy", yScale(highlight.posPercentage * 100))
                         .attr("r", 2)
@@ -398,13 +174,13 @@ export const AnalysisPanel = () => {
 
         switch (analyticsLevel) {
             default:
-            case 'papers':
+            case AnalyticsLevel.PAPERS:
                 break;
-            case 'users':
+            case AnalyticsLevel.USERS:
                 // gray out the read pass that not belong to this paper
                 isHighlighted = selectedPaper === paperId;
                 break;
-            case 'purposes':
+            case AnalyticsLevel.PURPOSES:
                 // gray out the read pass that not belong to this paper and this user
                 isHighlighted = selectedPaper === paperId && selectedUser === userId;
                 break;
@@ -414,9 +190,9 @@ export const AnalysisPanel = () => {
             const path = d3.select(nodes[i]);
 
             if (isHighlighted) {
-                if (analyticsLevel === 'purposes') {
+                if (analyticsLevel === AnalyticsLevel.PURPOSES) {
                     const purposeId = path.attr("id").split("_")[1];
-                    const color = userPaperPurposes[`${userId}_${paperId}`].find(p => p.id === purposeId)?.color;
+                    const color = userPaperPurposes[`${userId}_${paperId}`]?.find(p => p.id === purposeId)?.color;
                     path.attr("stroke", color || "grey");
                 } else {
                     path.attr("stroke", "grey");
@@ -428,13 +204,29 @@ export const AnalysisPanel = () => {
 
         g.selectAll("circle").each((_d, i, nodes) => {
             const circle = d3.select(nodes[i]);
-            circle
-                .attr("fill", (isHighlighted && showHighlights) ? HIGHLIGHT_COLOR : "none")
+
+            if (isHighlighted && showHighlights) {
+                if (analyticsLevel === AnalyticsLevel.PURPOSES) {
+                    const purposeId = circle.attr("id").split("_")[1];
+                    const color = userPaperPurposes[`${userId}_${paperId}`]?.find(p => p.id === purposeId)?.color;
+                    circle
+                        .attr("fill", color || HIGHLIGHT_COLOR)
+                        .attr("stroke", "none");
+                } else {
+                    circle
+                        .attr("fill", HIGHLIGHT_COLOR)
+                        .attr("stroke", "none");
+                }
+            } else {
+                circle
+                    .attr("fill", "none")
+                    .attr("stroke", "none");
+            }
         });
     }
 
     const renderAnalyticsContent = () => {
-        if (analyticsLevel === 'papers') {
+        if (analyticsLevel === AnalyticsLevel.PAPERS) {
             return (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     {paperStats.map((paper) => (
@@ -495,7 +287,7 @@ export const AnalysisPanel = () => {
             );
         }
 
-        if (analyticsLevel === 'users') {
+        if (analyticsLevel === AnalyticsLevel.USERS) {
             return (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     {userPaperStats.map((user) => (
@@ -564,7 +356,7 @@ export const AnalysisPanel = () => {
             );
         }
 
-        if (analyticsLevel === 'purposes') {
+        if (analyticsLevel === AnalyticsLevel.PURPOSES) {
             return (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     {userPurposeStats.map((purpose) => (
@@ -680,20 +472,21 @@ export const AnalysisPanel = () => {
             {(selectedAnalyticsUsersId.length > 0 && selectedAnalyticsPapersId.length > 0) && (
                 <>
                     {/* Timeline Section - Middle 50% */}
-                    < Box sx={{ boxSizing: 'border-box', height: '50%', p: 2, borderBottom: 1, borderColor: 'divider' }}>
-                        <Typography variant="h6" sx={{ mb: 2 }}>
-                            Reading Timeline
-                        </Typography>
-                        <FormControlLabel
-                            control={<Checkbox
-                                checked={showHighlights}
-                                onChange={() => setShowHighlights(!showHighlights)}
-                            />}
-                            label="Show Highlights"
-                        />
+                    <Box sx={{ boxSizing: 'border-box', height: '50%', p: 2, borderBottom: 1, borderColor: 'divider' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                            <Typography variant="h6" sx={{ mb: 2 }}>
+                                Reading Timeline
+                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                <Notes sx={{ color: showHighlights ? 'primary.main' : 'text.secondary' }} />
+                                <Switch
+                                    checked={showHighlights}
+                                    onChange={() => setShowHighlights(!showHighlights)}
+                                    color="primary"
+                                />
+                            </Box>
+                        </Box>
 
-
-                        {/* Empty state */}
                         {Object.keys(userPaperReadSessions).length > 0 ?
                             (
                                 <Box id="timeline-container" sx={{ width: '100%', height: 'calc(100% - 80px)' }} />
@@ -721,18 +514,18 @@ export const AnalysisPanel = () => {
                         <Breadcrumbs sx={{ mb: 2 }}>
                             <Link
                                 component="button"
-                                underline={analyticsLevel === 'papers' ? 'none' : 'hover'}
-                                onClick={() => handleBreadcrumbClick('papers')}
-                                sx={{ fontWeight: analyticsLevel === 'papers' ? 'bold' : 'normal' }}
+                                underline={analyticsLevel === AnalyticsLevel.PAPERS ? 'none' : 'hover'}
+                                onClick={() => handleBreadcrumbClick(AnalyticsLevel.PAPERS)}
+                                sx={{ fontWeight: analyticsLevel === AnalyticsLevel.PAPERS ? 'bold' : 'normal' }}
                             >
                                 Papers
                             </Link>
                             {selectedPaper && (
                                 <Link
                                     component="button"
-                                    underline={analyticsLevel === 'users' ? 'none' : 'hover'}
-                                    onClick={() => handleBreadcrumbClick('users')}
-                                    sx={{ fontWeight: analyticsLevel === 'users' ? 'bold' : 'normal' }}
+                                    underline={analyticsLevel === AnalyticsLevel.USERS ? 'none' : 'hover'}
+                                    onClick={() => handleBreadcrumbClick(AnalyticsLevel.USERS)}
+                                    sx={{ fontWeight: analyticsLevel === AnalyticsLevel.USERS ? 'bold' : 'normal' }}
                                 >
                                     {papersDict[selectedPaper]?.title || 'Paper'}
                                 </Link>
@@ -757,7 +550,8 @@ export const AnalysisPanel = () => {
                         )}
                     </Box>
                 </>
-            )}
+            )
+            }
         </Box >
     );
 };

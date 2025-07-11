@@ -17,7 +17,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { Canvas, ReadHighlight, ReadPurpose, ReadSession, useStorageContext } from "./StorageContext";
 import { GoogleGenAI, Type } from "@google/genai";
 import { READING_GOAL_GENERATE_PROMPT, READING_SUGGESTION_SYSTEM_PROMPT } from "../utils/prompts";
-import { useWorkspaceContext } from "./WorkspaceContext";
+import { MODE_TYPES, useWorkspaceContext } from "./WorkspaceContext";
+import { AnalyticsLevel, useAnalysisContext } from "./AnalysisContext";
 
 type PaperContextData = {
   // Paper
@@ -55,8 +56,7 @@ type PaperContextData = {
   setCurrentSessionId: (sessionId: string) => void;
   setReadPurposes: (readPurposes: Record<string, ReadPurpose>) => void;
   displayedReads: Array<string>;
-  hideRead: (readId: string) => void;
-  showRead: (readId: string) => void;
+  toggleRead: (readId: string) => void;
   selectedHighlightIds: Array<string>;
   setSelectedHighlightIds: (highlightIds: Array<string>) => void;
 
@@ -71,7 +71,7 @@ type PaperContextData = {
   // Save
   saving: boolean;
   saveReadingData: () => Promise<void>;
-  resetReadingControlStates: () => void;
+  resetPaperContext: () => void;
 };
 
 const PaperContext = createContext<PaperContextData | undefined>(undefined);
@@ -112,7 +112,8 @@ const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 export const PaperContextProvider = ({ children }: { children: React.ReactNode }) => {
   // const { setRunTour } = useTourContext();
   const { userData, getHighlightsByUsersAndPapers, getPurposesByUserAndPaper, getCanvasUserAndPaper, getSessionsByUsersAndPapers, batchAddPurposes, batchAddHighlights, batchAddSessions, updateCanvas, getPaperFile } = useStorageContext();
-  const { viewingPaperId } = useWorkspaceContext();
+  const { mode, viewingPaperId } = useWorkspaceContext();
+  const { analyticsHighlights, analyticsPurposes, analyticsSessions, analyticsLevel } = useAnalysisContext();
 
   // Mode
   const [saving, setSaving] = useState(false);
@@ -147,7 +148,6 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
   useEffect(() => {
-    if (!viewingPaperId) return;
     console.log("load Paper Context", viewingPaperId);
     loadPaperPDF();
     loadPaperContext();
@@ -156,6 +156,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   const resetReadingControlStates = () => {
     setCurrentReadId("");
     setCurrentSessionId("");
+    setDisplayedReads([]);
     currentSessionIdRef.current = null;
     setSelectedHighlightIds([]);
     setDisplayEdgeTypes([EDGE_TYPES.CHRONOLOGICAL, EDGE_TYPES.RELATIONAL]);
@@ -166,13 +167,16 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     setReadPurposes({});
     setNodes([]);
     setEdges([]);
-    setDisplayedReads([]);
     setReadSessions({});
     resetReadingControlStates();
   };
 
   const loadPaperPDF = async () => {
-    if (!viewingPaperId) return;
+    if (!viewingPaperId) {
+      setPaperUrl(null);
+      return;
+    }
+
     try {
       const paperUrl = await getPaperFile(viewingPaperId);
       setPaperUrl(paperUrl);
@@ -182,43 +186,51 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   }
 
   const loadPaperContext = async () => {
-    if (userData && viewingPaperId) {
-      const highlightsByUserAndPaper = await getHighlightsByUsersAndPapers([userData.id], [viewingPaperId]);
-      const highlights = highlightsByUserAndPaper[`${userData.id}_${viewingPaperId}`] || [];
+    if (!viewingPaperId || !userData) {
+      resetPaperContext();
+      return;
+    }
 
-      const purposes = await getPurposesByUserAndPaper(userData.id, viewingPaperId);
-      const purposesRecord = purposes.reduce((acc, purpose) => {
-        acc[purpose.id] = purpose;
-        return acc;
-      }, {} as Record<string, ReadPurpose>);
-      const canvas = await getCanvasUserAndPaper(userData.id, viewingPaperId);
-      const sessionsByUserAndPaper = await getSessionsByUsersAndPapers([userData.id], [viewingPaperId]);
+    const highlightsByUserAndPaper = await getHighlightsByUsersAndPapers([userData.id], [viewingPaperId]);
+    const highlights = highlightsByUserAndPaper[`${userData.id}_${viewingPaperId}`] || [];
 
-      if (highlights && purposes && canvas && sessionsByUserAndPaper) {
-        // Load stored paper data
-        setHighlights(highlights);
-        setReadPurposes(purposesRecord);
-        setDisplayedReads(Object.keys(purposesRecord));
+    const purposes = await getPurposesByUserAndPaper(userData.id, viewingPaperId);
+    const canvas = await getCanvasUserAndPaper(userData.id, viewingPaperId);
+    const sessionsByUserAndPaper = await getSessionsByUsersAndPapers([userData.id], [viewingPaperId]);
+    const sessions = sessionsByUserAndPaper[`${userData.id}_${viewingPaperId}`] || [];
 
-        // Load stored canvas data
-        const reactFlowJson = JSON.parse(canvas.reactFlowJson);
-        console.log("reactFlowJson", reactFlowJson);
-        setNodes(reactFlowJson.nodes as Node[]);
-        setEdges(reactFlowJson.edges as Edge[]);
+    resetReadingControlStates();
+    populatePaperAndCanvasData(highlights, purposes, sessions, canvas?.reactFlowJson || "");
+  }
 
-        // Load stored read sessions data
-        const sessions = sessionsByUserAndPaper[`${userData.id}_${viewingPaperId}`] || [];
-        setReadSessions(sessions.reduce((acc, session) => {
-          acc[session.id] = session;
-          return acc;
-        }, {} as Record<string, ReadSession>));
-
-        resetReadingControlStates();
-      } else {
-        // No reading state data exists - start with fresh state
-        resetPaperContext();
+  useEffect(() => {
+    if (mode === MODE_TYPES.ANALYZING) {
+      if (analyticsLevel === AnalyticsLevel.PAPERS) {
+        populatePaperAndCanvasData(undefined, undefined, undefined, undefined);
+      }
+      else if (analyticsLevel === AnalyticsLevel.USERS) {
+        populatePaperAndCanvasData(Object.values(analyticsHighlights).flat(), undefined, undefined, undefined);
+      }
+      else if (analyticsLevel === AnalyticsLevel.PURPOSES) {
+        populatePaperAndCanvasData(Object.values(analyticsHighlights).flat(), Object.values(analyticsPurposes).flat(), Object.values(analyticsSessions).flat(), "");
       }
     }
+  }, [analyticsHighlights, analyticsPurposes, analyticsSessions]);
+
+  const populatePaperAndCanvasData = (highlights?: ReadHighlight[], purposes?: ReadPurpose[], sessions?: ReadSession[], canvasJSON?: string) => {
+    setHighlights(highlights || []);
+    setReadPurposes(purposes?.reduce((acc, purpose) => {
+      acc[purpose.id] = purpose;
+      return acc;
+    }, {} as Record<string, ReadPurpose>) || {});
+    setReadSessions(sessions?.reduce((acc, session) => {
+      acc[session.id] = session;
+      return acc;
+    }, {} as Record<string, ReadSession>) || {});
+    setDisplayedReads(purposes?.map((p) => p.id) || []);
+    const reactFlowJson = JSON.parse(canvasJSON || "{}");
+    setNodes(reactFlowJson.nodes as Node[] || []);
+    setEdges(reactFlowJson.edges as Edge[] || []);
   }
 
   useEffect(() => {
@@ -226,7 +238,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   }, [currentReadId]);
 
   useEffect(() => {
-    setEdges(edges.map((e: Edge) => ({
+    setEdges(edges?.map((e: Edge) => ({
       ...e,
       hidden: !displayEdgeTypes.includes(e.type ?? "")
     })));
@@ -475,7 +487,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
       },
     }));
     setCurrentReadId(newReadId);
-    showRead(newReadId);
+    toggleRead(newReadId, true);
 
     // Start the tour when adding first read -- TODO: redesign tour trigger to be more flexible
     // if (currentReadId === "-1") {
@@ -485,12 +497,12 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     // }
   };
 
-  const hideRead = (readId: string) => {
-    setDisplayedReads(displayedReads.filter((id) => id !== readId));
-  };
-
-  const showRead = (readId: string) => {
-    setDisplayedReads([...displayedReads, readId]);
+  const toggleRead = (readId: string, forceShow: boolean = false) => {
+    if (displayedReads.includes(readId) && !forceShow) {
+      setDisplayedReads(displayedReads.filter((id) => id !== readId));
+    } else {
+      setDisplayedReads([...displayedReads, readId]);
+    }
   };
 
   // Create a new reading session
@@ -567,6 +579,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
       // Start new reading session
       const sessionId = createNewReadingSession(currentReadId);
       currentSessionIdRef.current = sessionId;
+      toggleRead(currentReadId, true);
       startUpdateReadingSession();
     }
 
@@ -703,8 +716,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         setCurrentSessionId,
         displayedReads,
         setReadPurposes,
-        hideRead,
-        showRead,
+        toggleRead,
         selectedHighlightIds,
         setSelectedHighlightIds,
         // Read Log
@@ -715,7 +727,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         query_gemini,
         saving,
         saveReadingData,
-        resetReadingControlStates,
+        resetPaperContext,
       }}
     >
       {children}

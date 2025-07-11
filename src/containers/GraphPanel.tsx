@@ -301,7 +301,7 @@ function Flow(props: any) {
           )}
         </Box>
       </Panel>
-      <Panel position="top-right">
+      <Panel position="top-left">
         <IconButton onClick={openOverview}>{isOverview ? <CloseFullscreen /> : <OpenInFull />}</IconButton>
       </Panel>
 

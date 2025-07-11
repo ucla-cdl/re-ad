@@ -3,7 +3,7 @@ import PaperPanel from "./PaperPanel";
 import GraphPanel from "./GraphPanel";
 import { Box, IconButton } from "@mui/material";
 import "../styles/PaperReader.css";
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import Joyride, { ACTIONS, CallBackProps, EVENTS, STATUS } from "react-joyride";
 import { TourContext } from "../contexts/TourContext";
 import Split from 'react-split';
@@ -11,9 +11,17 @@ import { AnalysisPanel } from "./AnalysisPanel";
 import { PaperSelector } from "../components/paper-components/PaperSelector";
 import { ChevronLeft, ChevronRight } from "@mui/icons-material";
 import { MODE_TYPES, useWorkspaceContext } from "../contexts/WorkspaceContext";
+import { useNavigate } from "react-router-dom";
 
 export const PaperReader = () => {
-  const { mode } = useWorkspaceContext();
+  const { mode, viewingPaperId } = useWorkspaceContext();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!viewingPaperId) {
+      navigate("/papers");
+    }
+  }, [viewingPaperId]);
 
   // Paper selector visibility state
   const [paperSelectorVisible, setPaperSelectorVisible] = useState(true);

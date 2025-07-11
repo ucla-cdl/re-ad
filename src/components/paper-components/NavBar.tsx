@@ -45,7 +45,7 @@ const colorPalette = [
 export default function NavBar() {
   const { userData } = useStorageContext();
   const { mode, setMode, viewingPaperId } = useWorkspaceContext();
-  const { readPurposes, currentReadId, setCurrentReadId, displayedReads, hideRead, showRead, createRead, generateReadingGoals, saveReadingData, saving, stopUpdateReadingSession, resetReadingControlStates } = usePaperContext();
+  const { readPurposes, currentReadId, setCurrentReadId, displayedReads, toggleRead, createRead, generateReadingGoals, saveReadingData, saving, stopUpdateReadingSession, resetPaperContext } = usePaperContext();
   const { togglePaperForAnalytics, toggleUserForAnalytics } = useAnalysisContext();
   const { setRunTour } = useTourContext();
   const navigate = useNavigate();
@@ -104,15 +104,12 @@ export default function NavBar() {
 
   const handleToggleReadVisibility = (readId: string, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevent menu item click
-    if (displayedReads.includes(readId)) {
-      hideRead(readId);
-    } else {
-      showRead(readId);
-    }
+    toggleRead(readId);
   };
 
   const handleSwitchRead = (readId: string) => {
     setCurrentReadId(readId);
+    
     handleCloseReadsMenu();
   };
 
@@ -122,7 +119,7 @@ export default function NavBar() {
       // stop update reading session and save reading data
       stopUpdateReadingSession();
       await saveReadingData();
-      resetReadingControlStates();
+      resetPaperContext();
       // load default analytics papers and users
       togglePaperForAnalytics(viewingPaperId!);
       toggleUserForAnalytics(userData!.id);

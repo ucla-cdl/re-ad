@@ -39,7 +39,7 @@ export const PaperSelector = () => {
         // Filter users based on search query
         const filtered = Object.values(usersDict).filter(user =>
             user.name.toLowerCase().includes(userSearchQuery.toLowerCase())
-        );
+        ).sort((a, b) => a.name.localeCompare(b.name));
         setFilteredUsers(filtered);
     }, [userSearchQuery]);
 
@@ -186,7 +186,7 @@ export const PaperSelector = () => {
 
         return (
             <>
-                <Divider sx={{ my: 2 }} />
+                <Divider sx={{ my: 2, backgroundColor: "black", height: "1px" }} />
                 <Box sx={{ flex: '1 1 50%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                     <Typography variant="h6" sx={{ mb: 2, color: 'text.primary' }}>
                         User List
@@ -222,6 +222,7 @@ export const PaperSelector = () => {
                     <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
                         <List sx={{ p: 0 }}>
                             {filteredUsers.map((user) => {
+                                const isCurrentUser = user.id === userData?.id;
                                 const isSelectedForAnalytics = selectedAnalyticsUsersId.includes(user.id);
 
                                 return (
@@ -250,8 +251,7 @@ export const PaperSelector = () => {
                                                         />
                                                         <Box sx={{ flexGrow: 1 }}>
                                                             <ListItemText
-                                                                primary={user.name}
-                                                                secondary={user.email}
+                                                                primary={user.name + (isCurrentUser ? " (You)" : "")}
                                                                 primaryTypographyProps={{
                                                                     sx: {
                                                                         fontWeight: isSelectedForAnalytics ? 'bold' : 'normal',

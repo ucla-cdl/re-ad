@@ -4,8 +4,12 @@ import {
     useHighlightContainerContext,
 } from "react-pdf-highlighter-extended";
 import { ReadHighlight } from "../../contexts/StorageContext";
+import { MODE_TYPES } from "../../contexts/WorkspaceContext";
+import { AnalyticsLevel } from "../../contexts/AnalysisContext";
 
 interface HighlightContainerProps {
+    mode: string;
+    analyticsLevel: string;
     readPurposes: any;
     displayedReads: Array<string>;
     selectedHighlightIds: Array<string>;
@@ -13,6 +17,8 @@ interface HighlightContainerProps {
 }
 
 function HighlightContainer({
+    mode,
+    analyticsLevel,
     readPurposes,
     displayedReads,
     selectedHighlightIds,
@@ -24,7 +30,21 @@ function HighlightContainer({
         highlightBindings,
     } = useHighlightContainerContext<ReadHighlight>();
 
-    const color = displayedReads.includes(highlight.readPurposeId) ? readPurposes[highlight.readPurposeId].color : "#e6e6e6";
+    const getColor = () => {
+        let color = "#dceefa";
+
+        if (mode === MODE_TYPES.ANALYZING) {
+            if (analyticsLevel === AnalyticsLevel.PURPOSES) {
+                color = readPurposes[highlight.readPurposeId].color;
+            }
+        }
+        else if (mode === MODE_TYPES.READING) {
+            color = displayedReads.includes(highlight.readPurposeId) ? readPurposes[highlight.readPurposeId].color : "#e6e6e6";
+        }
+
+        return color;
+    }
+    
     const isSelected = selectedHighlightIds.includes(highlight.id);
 
     return (
@@ -33,7 +53,7 @@ function HighlightContainer({
                 isScrolledTo={isScrolledTo}
                 highlight={highlight}
                 style={{
-                    background: color,
+                    background: getColor(),
                     border: isSelected ? `2px solid black` : "none",
                 }}
                 onClick={() => setSelectedHighlightIds([highlight.id])}
@@ -44,7 +64,7 @@ function HighlightContainer({
                 highlight={highlight}
                 bounds={highlightBindings.textLayer}
                 style={{
-                    background: color,
+                    background: getColor(),
                     pointerEvents: "none",
                     border: isSelected ? `2px solid black` : "none",
                 }}

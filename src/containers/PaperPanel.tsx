@@ -10,8 +10,12 @@ import HighlightContainer from "../components/paper-components/HighlightContaine
 import { usePaperContext } from "../contexts/PaperContext";
 import ExpandableTip from "../components/paper-components/ExpandableTip";
 import { TourContext } from "../contexts/TourContext";
+import { useWorkspaceContext } from "../contexts/WorkspaceContext";
+import { useAnalysisContext } from "../contexts/AnalysisContext";
 
 function PaperPanel() {
+  const { mode } = useWorkspaceContext();
+  const { analyticsLevel } = useAnalysisContext();
   const {
     paperUrl,
     highlights,
@@ -77,6 +81,8 @@ function PaperPanel() {
                 textSelectionColor={readPurposes[currentReadId]?.color}
               >
                 <HighlightContainer
+                  mode={mode}
+                  analyticsLevel={analyticsLevel}
                   readPurposes={readPurposes}
                   displayedReads={displayedReads} 
                   selectedHighlightIds={selectedHighlightIds}
