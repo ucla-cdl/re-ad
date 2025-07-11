@@ -2,7 +2,8 @@ import { EdgeProps, BaseEdge, EdgeLabelRenderer, getBezierPath, useInternalNode 
 import { getEdgeParams } from "./utils";
 export default function RelationalEdge({
     source,
-    target
+    target,
+    markerEnd,
 }: EdgeProps) {
     const sourceNode = useInternalNode(source);
     const targetNode = useInternalNode(target);
@@ -27,7 +28,7 @@ export default function RelationalEdge({
 
     return (
         <>
-            <BaseEdge path={edgePath} style={{ stroke: 'black', strokeWidth: 2 }} />
+            <BaseEdge path={edgePath} markerEnd={markerEnd} style={{ stroke: 'black', strokeWidth: 2 }} />
             <EdgeLabelRenderer>
                 <div
                     className="nodrag nopan"

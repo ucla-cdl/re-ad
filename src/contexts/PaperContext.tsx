@@ -68,10 +68,10 @@ type PaperContextData = {
   // LLM
   query_gemini: (prompt: string, data: any) => Promise<string>;
 
-  // Save
-  saving: boolean;
+  // Data
   saveReadingData: () => Promise<void>;
   resetPaperContext: () => void;
+  loadPaperContext: () => Promise<void>;
 };
 
 const PaperContext = createContext<PaperContextData | undefined>(undefined);
@@ -105,6 +105,19 @@ export const EDGE_TYPES = {
   RELATIONAL: "relational",
 }
 
+export const CHRONOLOGICAL_EDGE_MARKER_END = {
+  type: MarkerType.Arrow,
+  width: 15,
+  height: 15,
+}
+
+export const RELATIONAL_EDGE_MARKER_END = {
+  type: MarkerType.Arrow,
+  width: 20,
+  height: 20,
+  color: "black",
+}
+
 export const UPDATE_INTERVAL = 500;
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
@@ -114,9 +127,6 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   const { userData, getHighlightsByUsersAndPapers, getPurposesByUserAndPaper, getCanvasUserAndPaper, getSessionsByUsersAndPapers, batchAddPurposes, batchAddHighlights, batchAddSessions, updateCanvas, getPaperFile } = useStorageContext();
   const { mode, viewingPaperId } = useWorkspaceContext();
   const { analyticsHighlights, analyticsPurposes, analyticsSessions, analyticsLevel } = useAnalysisContext();
-
-  // Mode
-  const [saving, setSaving] = useState(false);
 
   // Paper
   const [paperUrl, setPaperUrl] = useState<string | null>(null);
@@ -249,7 +259,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
 
     const paperContent = await pdfViewerRef.current.getAllText();
 
-    const completedGoals = Object.values(readPurposes).map((r) => r.title + ": " + r.description).join("\n");
+    const completedGoals = Object.keys(readPurposes).length > 0 ? Object.values(readPurposes).map((r, idx) => `${idx + 1}. ${r.title}: ${r.description}`).join("\n") : "No reading goals have been completed yet.";
     const prompt = READING_GOAL_GENERATE_PROMPT + "\n\n" + completedGoals + "\n\n" + "Below is the full text of the paper:\n" + paperContent;
 
     const response = await query_gemini(prompt);
@@ -340,7 +350,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
           target: id,
           targetHandle: `chronological-handle-${id}-target`,
           type: EDGE_TYPES.CHRONOLOGICAL,
-          markerEnd: { type: MarkerType.Arrow },
+          markerEnd: CHRONOLOGICAL_EDGE_MARKER_END,
           hidden: !displayEdgeTypes.includes(EDGE_TYPES.CHRONOLOGICAL)
         },
       ]);
@@ -373,7 +383,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         targetHandle: `relational-handle-${connection.target}-target`,
         id: `relational-${selectedId}-${connection.target}`,
         type: EDGE_TYPES.RELATIONAL,
-        markerEnd: { type: MarkerType.Arrow },
+        markerEnd: RELATIONAL_EDGE_MARKER_END,
         hidden: !displayEdgeTypes.includes(EDGE_TYPES.RELATIONAL)
       };
 
@@ -426,7 +436,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
           target: newGroupNodeId,
           targetHandle: `chronological-handle-${newGroupNodeId}-target`,
           type: EDGE_TYPES.CHRONOLOGICAL,
-          markerEnd: { type: MarkerType.Arrow },
+          markerEnd: CHRONOLOGICAL_EDGE_MARKER_END,
           hidden: !displayEdgeTypes.includes(EDGE_TYPES.CHRONOLOGICAL)
         },
       ]);
@@ -440,6 +450,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
       target: nodeId,
       targetHandle: `relational-handle-${nodeId}-target`,
       type: EDGE_TYPES.RELATIONAL,
+      markerEnd: RELATIONAL_EDGE_MARKER_END,
       hidden: !displayEdgeTypes.includes(EDGE_TYPES.RELATIONAL)
     }));
 
@@ -614,10 +625,6 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
       return;
     }
 
-    if (saving) return; // Prevent multiple saves
-
-    setSaving(true);
-
     try {
       const purposes = Object.values(readPurposes);
       await batchAddPurposes(purposes);
@@ -639,8 +646,6 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     } catch (error: any) {
       console.error('Error saving data:', error);
       alert('Failed to save data. Please try again.');
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -725,9 +730,10 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         stopUpdateReadingSession,
         // LLM
         query_gemini,
-        saving,
+        // Data
         saveReadingData,
         resetPaperContext,
+        loadPaperContext,
       }}
     >
       {children}

@@ -36,7 +36,7 @@ You will be provided with (1) the full text of an academic paper and (2) a list 
 
 Your task is to: 
 (1) first understand the paper, 
-(2) then provide a brief assessment of the user's current reading progress using the provided reading framework,
+(2) then provide a brief assessment of the user's current reading progress using the provided reading framework (note: if no reading goals have been completed, the user should start with level 0),
 (3) finally generate ${READING_GOAL_NUMBER} potential reading goals and their descriptions according to the provided intention framework.
 
 ${READING_FRAMEWORK_PROMPT}

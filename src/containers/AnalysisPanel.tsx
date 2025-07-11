@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import * as d3 from "d3";
 import { UPDATE_INTERVAL } from "../contexts/PaperContext";
 import { formatTime } from "../utils/func";
-import { Person, Article, Psychology, Analytics, Notes } from "@mui/icons-material";
+import { Person, Article, Analytics, Notes } from "@mui/icons-material";
 import { useWorkspaceContext } from "../contexts/WorkspaceContext";
 import { AnalyticsLevel, useAnalysisContext } from "../contexts/AnalysisContext";
 
@@ -367,13 +367,12 @@ export const AnalysisPanel = () => {
                                 backgroundColor: 'background.default',
                                 border: '1px solid',
                                 borderColor: 'divider',
-                                borderLeft: 4,
+                                borderLeft: 10,
                                 borderLeftColor: purpose.purposeColor
                             }}
                         >
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                <Psychology sx={{ color: purpose.purposeColor }} />
-                                <Typography variant="h6" sx={{ color: purpose.purposeColor }}>
+                                <Typography variant="h6">
                                     {purpose.purposeTitle}
                                 </Typography>
                             </Box>
@@ -472,9 +471,9 @@ export const AnalysisPanel = () => {
             {(selectedAnalyticsUsersId.length > 0 && selectedAnalyticsPapersId.length > 0) && (
                 <>
                     {/* Timeline Section - Middle 50% */}
-                    <Box sx={{ boxSizing: 'border-box', height: '50%', p: 2, borderBottom: 1, borderColor: 'divider' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                            <Typography variant="h6" sx={{ mb: 2 }}>
+                    <Box sx={{ boxSizing: 'border-box', height: '45%', p: 2, borderBottom: 1, borderColor: 'divider' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Typography variant="h6">
                                 Reading Timeline
                             </Typography>
                             <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -489,7 +488,7 @@ export const AnalysisPanel = () => {
 
                         {Object.keys(userPaperReadSessions).length > 0 ?
                             (
-                                <Box id="timeline-container" sx={{ width: '100%', height: 'calc(100% - 80px)' }} />
+                                <Box id="timeline-container" sx={{ width: '100%', height: 'calc(100% - 30px)' }} />
                             ) : (
                                 <Paper sx={{ p: 3, textAlign: 'center', backgroundColor: 'background.default' }}>
                                     <Typography variant="body2" color="text.secondary">
@@ -500,7 +499,7 @@ export const AnalysisPanel = () => {
                     </Box>
 
                     {/* Analytics Section - Bottom 50% */}
-                    <Box sx={{ boxSizing: 'border-box', height: '50%', p: 2, overflow: 'auto' }}>
+                    <Box sx={{ boxSizing: 'border-box', height: '55%', p: 2, overflow: 'auto' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                             <Typography variant="h6">
                                 Reading Analytics Explorer
@@ -525,9 +524,13 @@ export const AnalysisPanel = () => {
                                     component="button"
                                     underline={analyticsLevel === AnalyticsLevel.USERS ? 'none' : 'hover'}
                                     onClick={() => handleBreadcrumbClick(AnalyticsLevel.USERS)}
-                                    sx={{ fontWeight: analyticsLevel === AnalyticsLevel.USERS ? 'bold' : 'normal' }}
+                                    sx={{ 
+                                        fontWeight: analyticsLevel === AnalyticsLevel.USERS ? 'bold' : 'normal'
+                                    }}
                                 >
-                                    {papersDict[selectedPaper]?.title || 'Paper'}
+                                    {(papersDict[selectedPaper]?.title?.length > 30
+                                        ? papersDict[selectedPaper].title.slice(0, 30) + "…"
+                                        : papersDict[selectedPaper]?.title) || 'Paper'}
                                 </Link>
                             )}
                             {selectedUser && selectedPaper && (

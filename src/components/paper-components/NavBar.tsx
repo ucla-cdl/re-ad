@@ -45,8 +45,8 @@ const colorPalette = [
 export default function NavBar() {
   const { userData } = useStorageContext();
   const { mode, setMode, viewingPaperId } = useWorkspaceContext();
-  const { readPurposes, currentReadId, setCurrentReadId, displayedReads, toggleRead, createRead, generateReadingGoals, saveReadingData, saving, stopUpdateReadingSession, resetPaperContext } = usePaperContext();
-  const { togglePaperForAnalytics, toggleUserForAnalytics } = useAnalysisContext();
+  const { readPurposes, currentReadId, setCurrentReadId, displayedReads, toggleRead, createRead, generateReadingGoals, saveReadingData, stopUpdateReadingSession, resetPaperContext, loadPaperContext } = usePaperContext();
+  const { togglePaperForAnalytics, toggleUserForAnalytics, reloadAnalytics } = useAnalysisContext();
   const { setRunTour } = useTourContext();
   const navigate = useNavigate();
 
@@ -58,6 +58,9 @@ export default function NavBar() {
   const [readingGoals, setReadingGoals] = useState<ReadGoal[] | null>(null);
   const [openColorPicker, setOpenColorPicker] = useState(false);
   const [readsMenuAnchor, setReadsMenuAnchor] = useState<null | HTMLElement>(null);
+
+  const [loading, setLoading] = useState(false);
+  const [loadingText, setLoadingText] = useState<string>("");
 
   const handleCreatingNewRead = async () => {
     setIsAddingNewRead(true);
@@ -114,8 +117,11 @@ export default function NavBar() {
   };
 
   const handleSwitchMode = async () => {
+    setLoading(true);
+
     // current mode is reading => switch to analyzing
     if (mode === MODE_TYPES.READING) {
+      setLoadingText("Saving your reading progress...");
       // stop update reading session and save reading data
       stopUpdateReadingSession();
       await saveReadingData();
@@ -127,8 +133,13 @@ export default function NavBar() {
     }
     // current mode is analyzing => switch to reading
     else if (mode === MODE_TYPES.ANALYZING) {
+      setLoadingText("Loading your reading progress...");
+      reloadAnalytics();
+      await loadPaperContext();
       setMode(MODE_TYPES.READING);
     }
+
+    setLoading(false);
   }
 
   return (
@@ -282,7 +293,7 @@ export default function NavBar() {
         {mode === 'reading' && (
           <IconButton
             onClick={saveReadingData}
-            disabled={saving}
+            disabled={loading}
             size="small"
           >
             <Save fontSize="small" />
@@ -312,7 +323,7 @@ export default function NavBar() {
       {mode === 'reading' && (
         <Dialog open={isAddingNewRead}>
           <DialogTitle>Create New Read</DialogTitle>
-          <DialogContent sx={{ minWidth: "20vw", p: 3, boxSizing: "border-box", display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+          <DialogContent sx={{ minWidth: "25vw", px: 4, py: 2, boxSizing: "border-box", display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
             <TextField
               fullWidth
               multiline
@@ -351,7 +362,7 @@ export default function NavBar() {
                   <Typography variant="body1" sx={{ fontWeight: "bold" }}>Suggested Reading Goals:</Typography>
                   <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
                     {readingGoals && readingGoals.map((goal) => (
-                      <Tooltip title={goal.goalDescription} key={goal.goalName}>
+                      <Tooltip title={goal.goalDescription} key={goal.goalName} arrow placement="right">
                         <Chip label={goal.goalName} variant="outlined" onClick={() => setTitle(goal.goalName)} />
                       </Tooltip>
                     ))}
@@ -420,10 +431,10 @@ export default function NavBar() {
           flexDirection: 'column',
           gap: 2
         }}
-        open={saving}
+        open={loading}
       >
         <CircularProgress color="inherit" />
-        <Typography variant="h6">Saving your work...</Typography>
+        <Typography variant="h6">{loadingText}</Typography>
       </Backdrop>
     </div>
   );

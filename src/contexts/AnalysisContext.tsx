@@ -70,6 +70,7 @@ type AnalysisContextData = {
 
     // Data fetching
     fetchData: () => Promise<void>;
+    reloadAnalytics: () => void;
 
     // Analytis Highlights
     analyticsHighlights: Record<string, ReadHighlight[]>;
@@ -121,10 +122,10 @@ export const AnalysisProvider = ({ children }: { children: React.ReactNode }) =>
 
         if (selectedPaper && !selectedAnalyticsPapersId.includes(selectedPaper)) {
             setSelectedPaper(null);
-            setAnalyticsLevel('papers');
+            setAnalyticsLevel(AnalyticsLevel.PAPERS);
         } else if (selectedUser && !selectedAnalyticsUsersId.includes(selectedUser)) {
             setSelectedUser(null);
-            setAnalyticsLevel('users');
+            setAnalyticsLevel(AnalyticsLevel.USERS);
         }
     }, [selectedAnalyticsUsersId, selectedAnalyticsPapersId]);
 
@@ -139,7 +140,7 @@ export const AnalysisProvider = ({ children }: { children: React.ReactNode }) =>
         setUserPaperHighlights({});
         setUserPaperPurposes({});
         setMaxDuration(0);
-        setAnalyticsLevel('papers');
+        setAnalyticsLevel(AnalyticsLevel.PAPERS);
         setSelectedPaper(null);
         setSelectedUser(null);
         setTotalTime(0);
@@ -395,6 +396,7 @@ export const AnalysisProvider = ({ children }: { children: React.ReactNode }) =>
         analyticsHighlights,
         analyticsPurposes,
         analyticsSessions,
+        reloadAnalytics,
     }}>{children}</AnalysisContext.Provider>;
 }
 

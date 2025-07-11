@@ -31,7 +31,7 @@
     max-width: 150px;
     padding: 15px;
     border: 1.5px solid black;
-    filter: saturate(0.8) brightness(1.25);
+    filter: saturate(0.85) brightness(1.05);
 }
 
 .overview-node {
@@ -46,7 +46,7 @@
     font-weight: bold;
     padding: 20px;
     border: 2px solid black;
-    filter: saturate(2) contrast(1.2);
+    filter: saturate(1.05) brightness(0.95);
 }
 
 .connection-handle {

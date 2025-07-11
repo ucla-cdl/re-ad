@@ -5,8 +5,8 @@ import { usePaperContext } from "../../contexts/PaperContext";
 
 export default function OverviewNode({ data }: NodeProps<Node>) {
     const { id, readRecordId, label, content, type, notes } = data as { id: string, readRecordId: string, label: string, content: string, type: string, notes: string };
-    const { readRecords, displayedReads, selectedHighlightIds } = usePaperContext();
-    const { color } = readRecords[readRecordId];
+    const { readPurposes, displayedReads, selectedHighlightIds } = usePaperContext();
+    const { color } = readPurposes[readRecordId];
     const isDisplayed = displayedReads.includes(readRecordId);
 
     return (
