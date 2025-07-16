@@ -6,6 +6,7 @@ import { formatTime } from "../utils/func";
 import { Person, Article, Analytics, Notes } from "@mui/icons-material";
 import { useWorkspaceContext } from "../contexts/WorkspaceContext";
 import { AnalyticsLevel, useAnalysisContext } from "../contexts/AnalysisContext";
+import "../styles/AnalysisPanel.css";
 
 export const AnalysisPanel = () => {
     const { usersDict, papersDict } = useWorkspaceContext();
@@ -132,6 +133,7 @@ export const AnalysisPanel = () => {
                     .attr("id", `read_session_${session.id}`)
 
                 sessionGroup.append("path")
+                    .attr("class", "read-timeline-path")
                     .attr("id", `path_${session.readPurposeId}_${session.id}`)
                     .attr("d", line(scrollSequence))
                     .attr("fill", "none")
@@ -141,6 +143,7 @@ export const AnalysisPanel = () => {
                 highlights.filter(highlight => highlight.sessionId === session.id).forEach(highlight => {
                     const relativeTime = highlight.timestamp - session.startTime + durationIntercept;
                     sessionGroup.append("circle")
+                        .attr("class", "read-timeline-highlight")
                         .attr("id", `highlight_${session.readPurposeId}_${session.id}_${highlight.id}`)
                         .attr("cx", xScale(relativeTime))
                         .attr("cy", yScale(highlight.posPercentage * 100))

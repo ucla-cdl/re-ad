@@ -38,7 +38,7 @@ import { useStorageContext, PaperData, UserRole } from '../contexts/StorageConte
 import { v4 as uuidv4 } from 'uuid';
 import icon from "/re-ad-icon.svg"
 import '../styles/PapersHub.css';
-import { useWorkspaceContext } from '../contexts/WorkspaceContext';
+import { MODE_TYPES, useWorkspaceContext } from '../contexts/WorkspaceContext';
 import { useNavigate } from 'react-router-dom';
 
 type uploadPaperData = {
@@ -73,12 +73,17 @@ export const PapersHub = () => {
     });
 
     const { userData, setUserData, loadUserData, updateUser, getUserByEmail, addPaperData, addPaperFile, addPaperToUser } = useStorageContext();
-    const { papersDict, setViewingPaperId } = useWorkspaceContext();
+    const { papersDict, setViewingPaperId, setMode } = useWorkspaceContext();
     const navigate = useNavigate();
 
     const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(null);
     const [editProfileDialogOpen, setEditProfileDialogOpen] = useState(false);
     const [editedUserName, setEditedUserName] = useState('');
+
+    useEffect(() => {
+        setMode(MODE_TYPES.READING);
+        setViewingPaperId(null);
+    }, []);
 
     useEffect(() => {
         // Filter papers based on search query

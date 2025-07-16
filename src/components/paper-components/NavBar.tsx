@@ -127,8 +127,8 @@ export default function NavBar() {
       await saveReadingData();
       resetPaperContext();
       // load default analytics papers and users
-      togglePaperForAnalytics(viewingPaperId!);
-      toggleUserForAnalytics(userData!.id);
+      togglePaperForAnalytics(viewingPaperId!, true);
+      toggleUserForAnalytics(userData!.id, true);
       setMode(MODE_TYPES.ANALYZING);
     }
     // current mode is analyzing => switch to reading

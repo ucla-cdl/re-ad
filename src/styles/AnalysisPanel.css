@@ -1,0 +1,7 @@
+.read-timeline-path {
+    filter: saturate(1.05) brightness(0.9);
+}
+
+.read-timeline-highlight {
+    filter: saturate(1.05) brightness(0.9);
+}

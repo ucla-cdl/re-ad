@@ -44,8 +44,8 @@ type AnalysisContextData = {
     // Selection state
     selectedAnalyticsPapersId: string[];
     selectedAnalyticsUsersId: string[];
-    togglePaperForAnalytics: (paperId: string) => void;
-    toggleUserForAnalytics: (userId: string) => void;
+    togglePaperForAnalytics: (paperId: string, forceShown?: boolean) => void;
+    toggleUserForAnalytics: (userId: string, forceShown?: boolean) => void;
 
     // Data state
     userPaperReadSessions: Record<string, ReadSession[]>;
@@ -82,7 +82,7 @@ const AnalysisContext = createContext<AnalysisContextData | undefined>(undefined
 
 export const AnalysisProvider = ({ children }: { children: React.ReactNode }) => {
     const { userData, getSessionsByUsersAndPapers, getHighlightsByUsersAndPapers, getPurposesByUserAndPaper } = useStorageContext();
-    const { usersDict, papersDict } = useWorkspaceContext();
+    const { usersDict, papersDict, setViewingPaperId } = useWorkspaceContext();
 
     // Selection state
     const [selectedAnalyticsPapersId, setSelectedAnalyticsPapersId] = useState<string[]>([]);
@@ -130,6 +130,12 @@ export const AnalysisProvider = ({ children }: { children: React.ReactNode }) =>
     }, [selectedAnalyticsUsersId, selectedAnalyticsPapersId]);
 
     useEffect(() => {
+        if (selectedPaper) {
+            setViewingPaperId(selectedPaper);
+        }
+    }, [selectedPaper]);
+
+    useEffect(() => {
         calculateAnalytics();
     }, [userPaperReadSessions, userPaperHighlights, userPaperPurposes, selectedAnalyticsUsersId, selectedAnalyticsPapersId, analyticsLevel, selectedPaper, selectedUser]);
 
@@ -152,18 +158,20 @@ export const AnalysisProvider = ({ children }: { children: React.ReactNode }) =>
         setAnalyticsSessions({});
     }
 
-    const togglePaperForAnalytics = (paperId: string) => {
+    const togglePaperForAnalytics = (paperId: string, forceShown: boolean = false) => {
         setSelectedAnalyticsPapersId(prev => {
             if (prev.includes(paperId)) {
+                if (forceShown) return prev;
                 return prev.filter(id => id !== paperId);
             }
             return [...prev, paperId];
         });
     };
 
-    const toggleUserForAnalytics = (userId: string) => {
+    const toggleUserForAnalytics = (userId: string, forceShown: boolean = false) => {
         setSelectedAnalyticsUsersId(prev => {
             if (prev.includes(userId)) {
+                if (forceShown) return prev;
                 return prev.filter(id => id !== userId);
             }
             return [...prev, userId];
