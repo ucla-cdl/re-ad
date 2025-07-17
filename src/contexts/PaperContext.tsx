@@ -126,7 +126,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   // const { setRunTour } = useTourContext();
   const { userData, getHighlightsByUsersAndPapers, getPurposesByUserAndPaper, getCanvasUserAndPaper, getSessionsByUsersAndPapers, batchAddPurposes, batchAddHighlights, batchAddSessions, updateCanvas, getPaperFile } = useStorageContext();
   const { mode, viewingPaperId } = useWorkspaceContext();
-  const { analyticsHighlights, analyticsPurposes, analyticsSessions, analyticsLevel, selectedPaper } = useAnalysisContext();
+  const { analyticsHighlights, analyticsPurposes, analyticsSessions, analyticsCanvasJSON, analyticsLevel, selectedPaper } = useAnalysisContext();
 
   // Paper
   const [paperUrl, setPaperUrl] = useState<string | null>(null);
@@ -172,7 +172,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     if (mode === MODE_TYPES.ANALYZING) {
       loadPaperContextForAnalytics();
     }
-  }, [analyticsLevel,analyticsHighlights, analyticsPurposes, analyticsSessions]);
+  }, [analyticsLevel,analyticsHighlights, analyticsPurposes, analyticsSessions, analyticsCanvasJSON]);
 
   const resetReadingControlStates = () => {
     setCurrentReadId("");
@@ -237,7 +237,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
       populatePaperAndCanvasData(Object.values(analyticsHighlights).flat(), undefined, undefined, undefined);
     }
     else if (analyticsLevel === AnalyticsLevel.PURPOSES) {
-      populatePaperAndCanvasData(Object.values(analyticsHighlights).flat(), Object.values(analyticsPurposes).flat(), Object.values(analyticsSessions).flat(), "");
+      populatePaperAndCanvasData(Object.values(analyticsHighlights).flat(), Object.values(analyticsPurposes).flat(), Object.values(analyticsSessions).flat(), analyticsCanvasJSON);
     }
   }
 

@@ -12,9 +12,11 @@ import { PaperSelector } from "../components/paper-components/PaperSelector";
 import { ChevronLeft, ChevronRight } from "@mui/icons-material";
 import { MODE_TYPES, useWorkspaceContext } from "../contexts/WorkspaceContext";
 import { useNavigate } from "react-router-dom";
+import { useAnalysisContext } from "../contexts/AnalysisContext";
 
 export const PaperReader = () => {
   const { mode, viewingPaperId } = useWorkspaceContext();
+  const { showCanvas } = useAnalysisContext();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -113,8 +115,8 @@ export const PaperReader = () => {
             <PaperPanel />
           </Box>
           <Box className="panel graph-panel">
-            {mode === MODE_TYPES.READING && <GraphPanel />}
-            {mode === MODE_TYPES.ANALYZING && <AnalysisPanel />}
+            {(mode === MODE_TYPES.READING || (mode === MODE_TYPES.ANALYZING && showCanvas)) && <GraphPanel />}
+            {mode === MODE_TYPES.ANALYZING && !showCanvas && <AnalysisPanel />}
           </Box>
         </Split>
       </Box>

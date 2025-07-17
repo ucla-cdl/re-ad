@@ -1,9 +1,9 @@
-import { Box, Paper, Typography, Breadcrumbs, Link, Chip, Switch } from "@mui/material";
+import { Box, Paper, Typography, Breadcrumbs, Link, Chip, Switch, IconButton } from "@mui/material";
 import { useEffect, useState } from "react";
 import * as d3 from "d3";
 import { UPDATE_INTERVAL } from "../contexts/PaperContext";
 import { formatTime } from "../utils/func";
-import { Person, Article, Analytics, Notes } from "@mui/icons-material";
+import { Person, Article, Analytics, Notes, Polyline } from "@mui/icons-material";
 import { useWorkspaceContext } from "../contexts/WorkspaceContext";
 import { AnalyticsLevel, useAnalysisContext } from "../contexts/AnalysisContext";
 import "../styles/AnalysisPanel.css";
@@ -23,10 +23,11 @@ export const AnalysisPanel = () => {
         handlePaperClick,
         handleUserClick,
         handleBreadcrumbClick,
-        totalTime,
         paperStats,
         userPaperStats,
-        userPurposeStats
+        userPurposeStats,
+        showCanvas,
+        setShowCanvas,
     } = useAnalysisContext();
 
     const [showHighlights, setShowHighlights] = useState(false);
@@ -507,9 +508,14 @@ export const AnalysisPanel = () => {
                             <Typography variant="h6">
                                 Reading Analytics Explorer
                             </Typography>
-                            <Typography variant="body2" color="primary">
-                                Total Time: {formatTime(totalTime)}
-                            </Typography>
+                            {analyticsLevel === AnalyticsLevel.PURPOSES && (
+                                <IconButton
+                                    color="primary"
+                                    onClick={() => setShowCanvas(!showCanvas)}
+                                >
+                                    <Polyline />
+                                </IconButton>
+                            )}
                         </Box>
 
                         {/* Breadcrumbs */}
@@ -527,7 +533,7 @@ export const AnalysisPanel = () => {
                                     component="button"
                                     underline={analyticsLevel === AnalyticsLevel.USERS ? 'none' : 'hover'}
                                     onClick={() => handleBreadcrumbClick(AnalyticsLevel.USERS)}
-                                    sx={{ 
+                                    sx={{
                                         fontWeight: analyticsLevel === AnalyticsLevel.USERS ? 'bold' : 'normal'
                                     }}
                                 >

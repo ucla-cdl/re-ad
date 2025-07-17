@@ -18,10 +18,12 @@ import ChronologicalEdge from "../components/graph-components/ChronologicalEdge"
 import RelationalEdge from "../components/graph-components/RelationalEdge";
 import { usePaperContext, EDGE_TYPES } from "../contexts/PaperContext";
 import NodeEditor from "../components/node-components/NodeEditor";
-import { CloseFullscreen, OpenInFull, Settings } from "@mui/icons-material";
+import { ArrowBack, CloseFullscreen, OpenInFull, Settings } from "@mui/icons-material";
 import ThemeNode from "../components/graph-components/ThemeNode";
 import ContextMenu from "../components/graph-components/ContextMenu";
 import { ConnectionLineComponent } from "../components/graph-components/utils";
+import { MODE_TYPES, useWorkspaceContext } from "../contexts/WorkspaceContext";
+import { useAnalysisContext } from "../contexts/AnalysisContext";
 
 const nodeTypes = {
   highlight: HighlightNode,
@@ -36,6 +38,8 @@ const edgeTypes = {
 
 function Flow(props: any) {
   const {
+    mode,
+    setShowCanvas,
     nodes,
     edges,
     setNodes,
@@ -79,7 +83,7 @@ function Flow(props: any) {
     if (isOverview || !event) return;
 
     // Multi-select with Shift key
-    if (event.shiftKey) {
+    if (event.shiftKey && mode === MODE_TYPES.READING) {
       if (selectedHighlightIds.includes(node.id)) {
         // Remove from selection if already selected
         const newSelection = selectedHighlightIds.filter((id: string) => id !== node.id);
@@ -102,7 +106,7 @@ function Flow(props: any) {
   }
 
   const onNodeContextMenu: NodeMouseHandler = (event, node) => {
-    if (isOverview || !event) return;
+    if (isOverview || !event || mode === MODE_TYPES.ANALYZING) return;
 
     event.preventDefault();
 
@@ -302,6 +306,9 @@ function Flow(props: any) {
         </Box>
       </Panel>
       <Panel position="top-left">
+        <IconButton onClick={() => setShowCanvas(false)}>
+          <ArrowBack />
+        </IconButton>
         <IconButton onClick={openOverview}>{isOverview ? <CloseFullscreen /> : <OpenInFull />}</IconButton>
       </Panel>
 
@@ -318,6 +325,7 @@ function Flow(props: any) {
 }
 
 export default function GraphPanel() {
+  const { mode } = useWorkspaceContext();
   const {
     nodes,
     edges,
@@ -334,12 +342,15 @@ export default function GraphPanel() {
     displayEdgeTypes,
     setDisplayEdgeTypes
   } = usePaperContext();
+  const { setShowCanvas } = useAnalysisContext();
 
   return (
     <Box style={{ width: "100%", height: "100%", position: "relative" }}>
       <ReactFlowProvider>
         <Flow
           style={{ height: "auto" }}
+          mode={mode}
+          setShowCanvas={setShowCanvas}
           nodes={nodes}
           edges={edges}
           setNodes={setNodes}

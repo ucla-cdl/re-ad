@@ -86,7 +86,7 @@ type StorageContextData = {
     addPaperFile: (paperId: string, file: File) => Promise<void>;
     
     // Canvas Functions
-    getCanvasUserAndPaper: (userId: string, paperId: string) => Promise<Canvas | null>;
+    getCanvasUserAndPaper: (userId: string, paperId: string) => Promise<Canvas>;
     updateCanvas: (canvasData: Canvas) => Promise<void>;
 
     // Highlight Functions
@@ -250,10 +250,10 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
     }
 
     // Canvas Functions
-    const getCanvasUserAndPaper = async (userId: string, paperId: string): Promise<Canvas | null> => {
+    const getCanvasUserAndPaper = async (userId: string, paperId: string): Promise<Canvas> => {
         const q = query(canvasesCollectionRef, where('userId', '==', userId), where('paperId', '==', paperId));
         const querySnapshot = await getDocs(q);
-        return querySnapshot.docs.map(doc => doc.data() as Canvas)[0];
+        return querySnapshot.docs.map(doc => doc.data() as Canvas)[0] || "";
     }
 
     const updateCanvas = async (canvasData: Canvas): Promise<void> => {

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { useStorageContext, ReadSession, ReadHighlight, ReadPurpose } from "./StorageContext";
+import { useStorageContext, ReadSession, ReadHighlight, ReadPurpose, Canvas } from "./StorageContext";
 import { useWorkspaceContext } from "./WorkspaceContext";
 
 type PaperStats = {
@@ -63,7 +63,6 @@ type AnalysisContextData = {
     handleBreadcrumbClick: (level: string) => void;
 
     // Analytics data
-    totalTime: number;
     paperStats: PaperStats[];
     userPaperStats: UserPaperStats[];
     userPurposeStats: UserPurposeStats[];
@@ -76,12 +75,17 @@ type AnalysisContextData = {
     analyticsHighlights: Record<string, ReadHighlight[]>;
     analyticsPurposes: Record<string, ReadPurpose[]>;
     analyticsSessions: Record<string, ReadSession[]>;
+    analyticsCanvasJSON: string;
+
+    // Canvas
+    showCanvas: boolean;
+    setShowCanvas: (showCanvas: boolean) => void;
 }
 
 const AnalysisContext = createContext<AnalysisContextData | undefined>(undefined);
 
 export const AnalysisProvider = ({ children }: { children: React.ReactNode }) => {
-    const { userData, getSessionsByUsersAndPapers, getHighlightsByUsersAndPapers, getPurposesByUserAndPaper } = useStorageContext();
+    const { userData, getSessionsByUsersAndPapers, getHighlightsByUsersAndPapers, getPurposesByUserAndPaper, getCanvasUserAndPaper } = useStorageContext();
     const { usersDict, papersDict, setViewingPaperId } = useWorkspaceContext();
 
     // Selection state
@@ -92,6 +96,7 @@ export const AnalysisProvider = ({ children }: { children: React.ReactNode }) =>
     const [userPaperReadSessions, setUserPaperReadSessions] = useState<Record<string, ReadSession[]>>({});
     const [userPaperHighlights, setUserPaperHighlights] = useState<Record<string, ReadHighlight[]>>({});
     const [userPaperPurposes, setUserPaperPurposes] = useState<Record<string, ReadPurpose[]>>({});
+    const [userPaperCanvases, setUserPaperCanvases] = useState<Record<string, Canvas>>({});
     const [maxDuration, setMaxDuration] = useState(0);
     const [isLoadingData, setIsLoadingData] = useState(false);
 
@@ -99,9 +104,9 @@ export const AnalysisProvider = ({ children }: { children: React.ReactNode }) =>
     const [analyticsLevel, setAnalyticsLevel] = useState<string>(AnalyticsLevel.PAPERS);
     const [selectedPaper, setSelectedPaper] = useState<string | null>(null);
     const [selectedUser, setSelectedUser] = useState<string | null>(null);
+    const [showCanvas, setShowCanvas] = useState(false);
 
     // Analytics data
-    const [totalTime, setTotalTime] = useState(0);
     const [paperStats, setPaperStats] = useState<PaperStats[]>([]);
     const [userPaperStats, setUserPaperStats] = useState<UserPaperStats[]>([]);
     const [userPurposeStats, setUserPurposeStats] = useState<UserPurposeStats[]>([]);
@@ -110,6 +115,7 @@ export const AnalysisProvider = ({ children }: { children: React.ReactNode }) =>
     const [analyticsHighlights, setAnalyticsHighlights] = useState<Record<string, ReadHighlight[]>>({});
     const [analyticsPurposes, setAnalyticsPurposes] = useState<Record<string, ReadPurpose[]>>({});
     const [analyticsSessions, setAnalyticsSessions] = useState<Record<string, ReadSession[]>>({});
+    const [analyticsCanvasJSON, setAnalyticsCanvasJSON] = useState<string>("");
 
     useEffect(() => {
         reloadAnalytics();
@@ -145,17 +151,18 @@ export const AnalysisProvider = ({ children }: { children: React.ReactNode }) =>
         setUserPaperReadSessions({});
         setUserPaperHighlights({});
         setUserPaperPurposes({});
+        setUserPaperCanvases({});
         setMaxDuration(0);
         setAnalyticsLevel(AnalyticsLevel.PAPERS);
         setSelectedPaper(null);
         setSelectedUser(null);
-        setTotalTime(0);
         setPaperStats([]);
         setUserPaperStats([]);
         setUserPurposeStats([]);
         setAnalyticsHighlights({});
         setAnalyticsPurposes({});
         setAnalyticsSessions({});
+        setAnalyticsCanvasJSON("");
     }
 
     const togglePaperForAnalytics = (paperId: string, forceShown: boolean = false) => {
@@ -190,12 +197,15 @@ export const AnalysisProvider = ({ children }: { children: React.ReactNode }) =>
 
             // Fetch purposes for each user-paper combination
             const purposesByUserAndPaper: Record<string, ReadPurpose[]> = {};
+            const canvasByUserAndPaper: Record<string, Canvas> = {};
             for (const userId of selectedAnalyticsUsersId) {
                 for (const paperId of selectedAnalyticsPapersId) {
                     const key = `${userId}_${paperId}`;
                     try {
                         const purposes = await getPurposesByUserAndPaper(userId, paperId);
                         purposesByUserAndPaper[key] = purposes;
+                        const canvas = await getCanvasUserAndPaper(userId, paperId);
+                        canvasByUserAndPaper[key] = canvas;
                     } catch (error) {
                         console.error(`Error fetching purposes for user ${userId} and paper ${paperId}:`, error);
                         purposesByUserAndPaper[key] = [];
@@ -213,6 +223,7 @@ export const AnalysisProvider = ({ children }: { children: React.ReactNode }) =>
             setUserPaperReadSessions(sessionsByUserAndPaper);
             setUserPaperHighlights(highlightsByUserAndPaper);
             setUserPaperPurposes(purposesByUserAndPaper);
+            setUserPaperCanvases(canvasByUserAndPaper);
         } catch (error) {
             console.error('Error fetching analysis data:', error);
         } finally {
@@ -222,17 +233,10 @@ export const AnalysisProvider = ({ children }: { children: React.ReactNode }) =>
 
     const calculateAnalytics = () => {
         // Calculate total time for selected user-paper combinations
-        let totalTime = 0;
         const selectedKeys = Object.keys(userPaperReadSessions).filter(key => {
             const [userId, paperId] = key.split("_");
             return selectedAnalyticsUsersId.includes(userId) && selectedAnalyticsPapersId.includes(paperId);
         });
-
-        selectedKeys.forEach(key => {
-            const sessions = userPaperReadSessions[key] || [];
-            totalTime += sessions.reduce((acc, session) => acc + session.duration, 0);
-        });
-        setTotalTime(totalTime);
 
         if (analyticsLevel === AnalyticsLevel.PAPERS) {
             calculatePaperStats(selectedKeys);
@@ -328,6 +332,7 @@ export const AnalysisProvider = ({ children }: { children: React.ReactNode }) =>
         const sessions = userPaperReadSessions[key] || [];
         const highlights = userPaperHighlights[key] || [];
         const purposes = userPaperPurposes[key] || [];
+        const canvas = userPaperCanvases[key] || "";
 
         const purposeStats: UserPurposeStats[] = purposes.map(purpose => {
             const purposeSessions = sessions.filter(s => s.readPurposeId === purpose.id);
@@ -358,6 +363,7 @@ export const AnalysisProvider = ({ children }: { children: React.ReactNode }) =>
         setAnalyticsSessions({
             [userId]: sessions,
         });
+        setAnalyticsCanvasJSON(canvas.reactFlowJson);
     };
 
     const handlePaperClick = (paperId: string) => {
@@ -396,7 +402,6 @@ export const AnalysisProvider = ({ children }: { children: React.ReactNode }) =>
         handlePaperClick,
         handleUserClick,
         handleBreadcrumbClick,
-        totalTime,
         paperStats,
         userPaperStats,
         userPurposeStats,
@@ -404,7 +409,10 @@ export const AnalysisProvider = ({ children }: { children: React.ReactNode }) =>
         analyticsHighlights,
         analyticsPurposes,
         analyticsSessions,
+        analyticsCanvasJSON,
         reloadAnalytics,
+        showCanvas,
+        setShowCanvas,
     }}>{children}</AnalysisContext.Provider>;
 }
 
