@@ -16,7 +16,12 @@ export type UserData = {
     password: string;
     name: string;
     role: UserRole;
-    paperIds: string[];
+}
+
+export type UserPaperTableData = {
+    id: string;
+    userId: string;
+    paperId: string;
 }
 
 // Displayed in Paper Hub
@@ -79,8 +84,8 @@ type StorageContextData = {
     getUserByEmail: (email: string) => Promise<UserData | null>;
     updateUser: (userData: UserData) => Promise<void>;
     addPaperToUser: (userId: string, paperId: string) => Promise<void>;
-    getAllPapersData: () => Promise<PaperData[]>;
-    getPaperData: (paperId: string) => Promise<PaperData>;
+    getPapersByUser: (userId: string) => Promise<UserPaperTableData[]>;
+    getPaperDataById: (paperIds: string[]) => Promise<PaperData[]>;
     addPaperData: (paperData: PaperData) => Promise<void>;
     getPaperFile: (paperId: string) => Promise<string>;
     addPaperFile: (paperId: string, file: File) => Promise<void>;
@@ -100,6 +105,7 @@ type StorageContextData = {
     getPurposesByPaper: (paperId: string) => Promise<ReadPurpose[]>;
     getPurposesByUserAndPaper: (userId: string, paperId: string) => Promise<ReadPurpose[]>;
     addPurpose: (purpose: ReadPurpose) => Promise<string>;
+    updatePurpose: (purpose: ReadPurpose) => Promise<string>;
 
     // Session Functions
     getSessionsByUser: (userId: string, paperIds?: string[]) => Promise<ReadSession[]>;
@@ -129,6 +135,7 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const usersCollectionRef = collection(db, 'users');
+    const userPaperTableRef = collection(db, 'userPaperTable');
     const papersDataCollectionRef = collection(db, 'papersData');
     const canvasesCollectionRef = collection(db, 'canvases');
     const highlightsCollectionRef = collection(db, 'highlights');
@@ -191,34 +198,23 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
     // add paper to user
     const addPaperToUser = async (userId: string, paperId: string) => {
         try {
-            const userRef = doc(usersCollectionRef, userId);
-            const userDoc = await getDoc(userRef);
-            const userData = userDoc.data() as UserData;
-            if (!userData.paperIds.includes(paperId)) {
-                userData.paperIds.push(paperId);
-                await setDoc(doc(usersCollectionRef, userId), userData);
-                console.log('Paper added to user with ID:', userId);
-            }
-            else {
-                console.log('Paper already exists in user with ID:', userId);
-            }
+            await setDoc(doc(userPaperTableRef, `${userId}_${paperId}`), { id: `${userId}_${paperId}`, userId: userId, paperId: paperId });
         } catch (error) {
             console.error('Error adding paper to user:', error);
         }
     }
 
-    // get all papers data
-    const getAllPapersData = async () => {
-        const paperDocs = await getDocs(papersDataCollectionRef);
-        console.log("paperDocs", paperDocs.docs.map((doc) => doc.data()));
-        return paperDocs.docs.map((doc) => doc.data() as PaperData);
+    // get all papers by user
+    const getPapersByUser = async (userId: string) => {
+        const q = query(userPaperTableRef, where('userId', '==', userId));
+        const userPaperTableDocs = await getDocs(q);
+        return userPaperTableDocs.docs.map(doc => doc.data() as UserPaperTableData);
     }
 
-    // get paper data
-    const getPaperData = async (paperId: string) => {
-        const paperRef = doc(papersDataCollectionRef, paperId);
-        const paperDoc = await getDoc(paperRef);
-        return paperDoc.data() as PaperData;
+    const getPaperDataById = async (paperIds: string[]) => {
+        const q = query(papersDataCollectionRef, where('id', 'in', paperIds));
+        const paperDocs = await getDocs(q);
+        return paperDocs.docs.map(doc => doc.data() as PaperData);
     }
 
     // add paper data
@@ -317,6 +313,11 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
         return purpose.id;
     }
 
+    const updatePurpose = async (purpose: ReadPurpose): Promise<string> => {
+        await setDoc(doc(purposesCollectionRef, purpose.id), purpose);
+        return purpose.id;
+    }
+
     // Session Functions
     const getSessionsByUser = async (userId: string, paperIds?: string[]): Promise<ReadSession[]> => {
         let q;
@@ -406,8 +407,8 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
                 getUserByEmail,
                 updateUser,
                 addPaperToUser,
-                getAllPapersData,
-                getPaperData,
+                getPapersByUser,
+                getPaperDataById,
                 addPaperData,
                 getPaperFile,
                 addPaperFile,
@@ -421,6 +422,7 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
                 getPurposesByPaper,
                 getPurposesByUserAndPaper,
                 addPurpose,
+                updatePurpose,
                 getSessionsByUser,
                 getSessionsByPaper,
                 getSessionsByUsersAndPapers,

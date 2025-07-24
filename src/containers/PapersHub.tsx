@@ -205,8 +205,7 @@ export const PapersHub = () => {
                 email: loginEmail,
                 password: loginPassword,
                 name: loginEmail.split('@')[0],
-                role: UserRole.STUDENT,
-                paperIds: []
+                role: UserRole.STUDENT
             });
 
             localStorage.setItem('userId', userId);

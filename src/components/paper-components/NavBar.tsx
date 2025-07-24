@@ -23,7 +23,7 @@ import {
   CircularProgress,
   Switch
 } from "@mui/material";
-import { AddCircleOutline, Close, TipsAndUpdates, KeyboardArrowDown, Save, MenuBook, Analytics } from "@mui/icons-material";
+import { AddCircleOutline, Close, TipsAndUpdates, KeyboardArrowDown, Save, MenuBook, Analytics, Edit } from "@mui/icons-material";
 import logo from "/re-ad-icon.svg";
 import { useNavigate } from "react-router-dom";
 import { ChromePicker } from 'react-color';
@@ -52,7 +52,7 @@ export default function NavBar() {
 
   const [title, setTitle] = useState<string>("");
   const [color, setColor] = useState<string | null>(null);
-  const [isAddingNewRead, setIsAddingNewRead] = useState(false);
+  const [openReadDialog, setOpenReadDialog] = useState(false);
   const [isGeneratingReadingSuggestions, setIsGeneratingReadingSuggestions] = useState(false);
   const [readingProgress, setReadingProgress] = useState<string>("");
   const [readingGoals, setReadingGoals] = useState<ReadGoal[] | null>(null);
@@ -62,17 +62,22 @@ export default function NavBar() {
   const [loading, setLoading] = useState(false);
   const [loadingText, setLoadingText] = useState<string>("");
 
+  const [enableLLM, _setEnableLLM] = useState(false);
+
   const handleCreatingNewRead = async () => {
-    setIsAddingNewRead(true);
-    setIsGeneratingReadingSuggestions(true);
-    const readingSuggestion = await generateReadingGoals();
-    if (!readingSuggestion) {
+    setOpenReadDialog(true);
+
+    if (enableLLM) {
+      setIsGeneratingReadingSuggestions(true);
+      const readingSuggestion = await generateReadingGoals();
+      if (!readingSuggestion) {
+        setIsGeneratingReadingSuggestions(false);
+        return;
+      }
+      setReadingProgress(readingSuggestion.readingProgress);
+      setReadingGoals(readingSuggestion.readingGoals);
       setIsGeneratingReadingSuggestions(false);
-      return;
     }
-    setReadingProgress(readingSuggestion.readingProgress);
-    setReadingGoals(readingSuggestion.readingGoals);
-    setIsGeneratingReadingSuggestions(false);
   }
 
   const handleCreateRead = () => {
@@ -93,7 +98,7 @@ export default function NavBar() {
   const handleCancel = () => {
     setTitle("");
     setColor(null);
-    setIsAddingNewRead(false);
+    setOpenReadDialog(false);
     setOpenColorPicker(false);
   };
 
@@ -112,7 +117,7 @@ export default function NavBar() {
 
   const handleSwitchRead = (readId: string) => {
     setCurrentReadId(readId);
-    
+
     handleCloseReadsMenu();
   };
 
@@ -140,6 +145,12 @@ export default function NavBar() {
     }
 
     setLoading(false);
+  }
+
+  const onEditRead = () => {
+    setTitle(readPurposes[currentReadId]?.title || "");
+    setColor(readPurposes[currentReadId]?.color || null);
+    setOpenReadDialog(true);
   }
 
   return (
@@ -261,9 +272,18 @@ export default function NavBar() {
                       </MenuItem>
                     ))}
                   </Menu>
-                  <IconButton onClick={handleCreatingNewRead} size="small">
-                    <AddCircleOutline />
-                  </IconButton>
+                  <Box sx={{ display: "flex", alignItems: "center" }}>
+                    <Tooltip title="Edit Read">
+                      <IconButton onClick={onEditRead} size="small">
+                        <Edit />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Add New Read">
+                      <IconButton onClick={handleCreatingNewRead} size="small">
+                        <AddCircleOutline />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
                 </Box>
               ) : (
                 <Button
@@ -321,7 +341,7 @@ export default function NavBar() {
 
       {/* Add new read dialog - Only in reading mode */}
       {mode === 'reading' && (
-        <Dialog open={isAddingNewRead}>
+        <Dialog open={openReadDialog}>
           <DialogTitle>Create New Read</DialogTitle>
           <DialogContent sx={{ minWidth: "25vw", px: 4, py: 2, boxSizing: "border-box", display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
             <TextField
@@ -333,45 +353,49 @@ export default function NavBar() {
               sx={{ my: 1 }}
             />
 
-            {isGeneratingReadingSuggestions ? (
-              <Box sx={{ my: 2, display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
-                <p style={{
-                  animation: "pulse 1.5s ease-in-out infinite",
-                  fontSize: "16px",
-                  color: "#666"
-                }}>
-                  Generating reading goals...
-                </p>
-                <style>
-                  {`
+            {!enableLLM ? <></> :
+              <>
+                {isGeneratingReadingSuggestions ? (
+                  <Box sx={{ my: 2, display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+                    <p style={{
+                      animation: "pulse 1.5s ease-in-out infinite",
+                      fontSize: "16px",
+                      color: "#666"
+                    }}>
+                      Generating reading goals...
+                    </p>
+                    <style>
+                      {`
                   @keyframes pulse {
                     0% { opacity: 0.4; }
                     50% { opacity: 1; }
                     100% { opacity: 0.4; }
                   }
                 `}
-                </style>
-              </Box>
-            ) : (
-              <Box sx={{ my: 2, display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%", gap: 2 }}>
-                <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%", gap: 1 }}>
-                  <Typography variant="body1" sx={{ fontWeight: "bold" }}>Reading Progress:</Typography>
-                  <Typography variant="body1">{readingProgress}</Typography>
-                </Box>
-                <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%", gap: 1 }}>
-                  <Typography variant="body1" sx={{ fontWeight: "bold" }}>Suggested Reading Goals:</Typography>
-                  <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
-                    {readingGoals && readingGoals.map((goal) => (
-                      <Tooltip title={goal.goalDescription} key={goal.goalName} arrow placement="right">
-                        <Chip label={goal.goalName} variant="outlined" onClick={() => setTitle(goal.goalName)} />
-                      </Tooltip>
-                    ))}
+                    </style>
                   </Box>
-                </Box>
-              </Box>
-            )}
+                ) : (
+                  <Box sx={{ my: 2, display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%", gap: 2 }}>
+                    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%", gap: 1 }}>
+                      <Typography variant="body1" sx={{ fontWeight: "bold" }}>Reading Progress:</Typography>
+                      <Typography variant="body1">{readingProgress}</Typography>
+                    </Box>
+                    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%", gap: 1 }}>
+                      <Typography variant="body1" sx={{ fontWeight: "bold" }}>Suggested Reading Goals:</Typography>
+                      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
+                        {readingGoals && readingGoals.map((goal) => (
+                          <Tooltip title={goal.goalDescription} key={goal.goalName} arrow placement="right">
+                            <Chip label={goal.goalName} variant="outlined" onClick={() => setTitle(goal.goalName)} />
+                          </Tooltip>
+                        ))}
+                      </Box>
+                    </Box>
+                  </Box>
+                )}
+              </>
+            }
 
-            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
+            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1, mt: 2 }}>
               <Typography variant="body1" sx={{ fontWeight: "bold" }}>Color Palette:</Typography>
               <Box sx={{ display: "flex", flexDirection: "row", alignItems: "center", justifyItems: "flex-start", gap: 1 }}>
                 {colorPalette.map((c) => (
@@ -411,6 +435,7 @@ export default function NavBar() {
                 />
               )}
             </Box>
+
           </DialogContent>
           <DialogActions sx={{ p: 2 }}>
             <Button variant="text" color="error" onClick={handleCancel}>

@@ -57,10 +57,10 @@ export const Home = () => {
             name: "Blog",
             url: "https://medium.com/@xshaw2002/user-research-blog-augment-data-intensive-reading-d3fd5546ad55/preview"
         },
-        {
-            name: "Try ReadFlect",
-            url: "./#/papers"
-        }
+        // {
+        //     name: "Try ReadFlect",
+        //     url: "./#/papers"
+        // }
     ]
 
     const VIDEO_URL = "https://drive.google.com/file/d/1MysOo8PKdM1bXcQ9CRU0GmFwAZ2jyBoE/preview";
@@ -103,9 +103,9 @@ export const Home = () => {
                 <Button className="link-button" variant="contained" onClick={() => window.open(links[1].url, "_blank")} startIcon={<AutoStories />}>
                     Blog
                 </Button>
-                <Button className="link-button" variant="contained" onClick={() => window.open(links[2].url, "_blank")} startIcon={<img src={icon} style={{ width: "20px", height: "20px" }} />}>
+                {/* <Button className="link-button" variant="contained" onClick={() => window.open(links[2].url, "_blank")} startIcon={<img src={icon} style={{ width: "20px", height: "20px" }} />}>
                     Try re:ad
-                </Button>
+                </Button> */}
                 <Button
                     className="link-button"
                     variant="contained"

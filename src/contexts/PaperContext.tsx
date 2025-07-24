@@ -497,7 +497,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     setChronologicalSeq(0);
   };
 
-  const createRead = (title: string, color: string) => {
+  const createRead = (title: string, color: string, description?: string) => {
     if (!userData || !viewingPaperId) return;
 
     const newReadId = uuidv4();
@@ -509,17 +509,11 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         userId: userData.id,
         title,
         color,
+        description,
       },
     }));
     setCurrentReadId(newReadId);
     toggleRead(newReadId, true);
-
-    // Start the tour when adding first read -- TODO: redesign tour trigger to be more flexible
-    // if (currentReadId === "-1") {
-    //   if (Object.keys(readRecords).length === 0) {
-    //     setRunTour(true);
-    //   }
-    // }
   };
 
   const toggleRead = (readId: string, forceShow: boolean = false) => {

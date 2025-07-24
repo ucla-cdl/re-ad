@@ -22,7 +22,7 @@ export type ModeType = typeof MODE_TYPES[keyof typeof MODE_TYPES];
 const WorkspaceContext = createContext<WorkspaceContextData | undefined>(undefined);
 
 export const WorkspaceProvider = ({ children }: { children: React.ReactNode }) => {
-    const { userData, getAllUsers, getAllPapersData } = useStorageContext();
+    const { userData, getAllUsers, getPapersByUser, getPaperDataById } = useStorageContext();
 
     const [usersDict, setUsersDict] = useState<Record<string, UserData>>({});
     const [papersDict, setPapersDict] = useState<Record<string, PaperData>>({});
@@ -52,8 +52,10 @@ export const WorkspaceProvider = ({ children }: { children: React.ReactNode }) =
             }, {} as Record<string, UserData>));
         }
 
-        // TODO: only load papers that the user has access to
-        const papers = await getAllPapersData();
+        // load papers that the user has access to
+        const userPaperTableData = await getPapersByUser(userData.id);
+        const paperIds = userPaperTableData.map(data => data.paperId);
+        const papers = await getPaperDataById(paperIds);
         setPapersDict(papers.reduce((acc, paper) => {
             acc[paper.id] = paper;
             return acc;
