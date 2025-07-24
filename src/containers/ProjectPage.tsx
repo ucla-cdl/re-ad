@@ -1,6 +1,5 @@
 import { Box, Button, SpeedDial, SpeedDialAction, Typography } from "@mui/material"
 import "../styles/Home.css"
-import logo from "/re-ad-logo.svg"
 import icon from "/re-ad-icon.svg"
 import poster from "/poster.png"
 import { ArrowUpward, AutoStories, GitHub, Navigation, YouTube } from "@mui/icons-material"
@@ -9,9 +8,19 @@ import ColorLensIcon from '@mui/icons-material/ColorLens';
 import ReactMarkdown from 'react-markdown'
 
 export const Home = () => {
-    const title = "Bridging Knowledge Gaps Between Cognitive Goals Across Multiple Readings Of Academic Papers";
+    const title = "ReadFlect: Scaffolding Intent-Driven, Multi-Session and Reflective Reading of Academic Papers";
 
     const authors = [
+        {
+            name: "Yuwei Xiao",
+            email: "yuweix@ucla.edu",
+            affiliation: "University of California, Los Angeles"
+        },
+        {
+            name: "Ollie Pai",
+            email: "o.pai@ucla.edu",
+            affiliation: "University of California, Los Angeles"
+        },
         {
             name: "Brian Roysar",
             email: "brianroysar@ucla.edu",
@@ -23,13 +32,8 @@ export const Home = () => {
             affiliation: "University of California, Los Angeles"
         },
         {
-            name: "Ollie Pai",
-            email: "o.pai@ucla.edu",
-            affiliation: "University of California, Los Angeles"
-        },
-        {
-            name: "Yuwei Xiao",
-            email: "yuweix@ucla.edu",
+            name: "Eunice Jun",
+            email: "emjun@ucla.edu",
             affiliation: "University of California, Los Angeles"
         }
     ]
@@ -39,23 +43,27 @@ export const Home = () => {
     Researchers must also navigate shifting cognitive goals, switching between different reading strategies based on their evolving needs.\
     Moreover, retaining and organizing insights over time remains a persistent challenge, often leading to redundant work and lost understanding upon revisiting papers.\
     While various reading strategies and digital tools exist, they often fail to comprehensively support researchers in managing their reading process and structuring their acquired knowledge.\
-    To address these gaps, we propose **re:ad, an interactive reading system designed to help researchers track their reading process, manage cognitive goals, and systematically organize insights**.\
-    By providing a structured and dynamic approach to reading, re:ad aims to reduce cognitive overload and enhance the efficiency of engaging with academic literature.`;
+    \n\nTo address these gaps, we present **ReadFlect**, an interactive system that **scaffolds intent-driven, multi-session and reflective reading of academic literature**.\
+    ReadFlect enables users to define and manage reading intentions, annotate papers in context, and externalize insights through a diagramming canvas.\
+    It further supports reflection through visual analytics that capture reading behaviors over time.\
+    By doing so, ReadFlect aims to foster more structured engagement with scientific literature, enhance comprehension, facilitate synthesis, and support collaborative and pedagogical scenarios.`;
 
     const links = [
         {
             name: "GitHub",
-            url: "https://github.com/olliepai/re-ad"
+            url: "https://github.com/ucla-cdl/re-ad"
         },
         {
             name: "Blog",
-            url: "https://medium.com/@xshaw2002/user-research-blog-augment-data-intensive-reading-d3fd5546ad55"
+            url: "https://medium.com/@xshaw2002/user-research-blog-augment-data-intensive-reading-d3fd5546ad55/preview"
         },
         {
-            name: "Try re:ad",
+            name: "Try ReadFlect",
             url: "./#/papers"
         }
     ]
+
+    const VIDEO_URL = "https://drive.google.com/file/d/1MysOo8PKdM1bXcQ9CRU0GmFwAZ2jyBoE/preview";
 
     const scrollToBlock = (block: string) => {
         document.querySelector(block)?.scrollIntoView({ behavior: 'smooth' });
@@ -63,9 +71,9 @@ export const Home = () => {
 
     return (
         <Box className="home">
-            <Box className="title-block" sx={{ p: 2, gap: 3 }}>
-                <img src={logo} alt="logo" style={{ width: "300px" }} />
-                <Typography variant="h3" sx={{ textAlign: "center", fontWeight: "bold" }}>
+            <Box className="title-block" sx={{ display: "flex", flexDirection: "row", alignItems: "center", p: 2 }}>
+                <img src={icon} alt="logo" style={{ width: "80px" }} />
+                <Typography variant="h4" sx={{ textAlign: "center", fontWeight: "bold" }}>
                     {title}
                 </Typography>
             </Box>
@@ -73,7 +81,7 @@ export const Home = () => {
                 {authors.map((author) => (
                     <Box className="author-box" key={author.name}>
                         <Typography variant="h6">
-                            {author.name}<sup>*</sup>
+                            {author.name}
                         </Typography>
                         <Typography variant="body1">
                             {author.email}
@@ -85,12 +93,6 @@ export const Home = () => {
             <Box className="information-block">
                 <Typography variant="h6">
                     {Array.from(new Set(authors.map(author => author.affiliation))).join(", ")}
-                </Typography>
-                <Typography variant="body2">
-                    <sup>*</sup>Indicates Equal Contribution
-                </Typography>
-                <Typography variant="body1">
-
                 </Typography>
             </Box>
 
@@ -107,22 +109,22 @@ export const Home = () => {
                 <Button
                     className="link-button"
                     variant="contained"
-                    onClick={() => scrollToBlock('.poster-block')}
-                    startIcon={<ColorLensIcon />}>
-                    Poster
+                    onClick={() => scrollToBlock('.video-block')}
+                    startIcon={<YouTube />}>
+                    Video
                 </Button>
                 <Button
                     className="link-button"
                     variant="contained"
-                    onClick={() => scrollToBlock('.video-block')}
-                    startIcon={<YouTube />}>
-                    Video
+                    onClick={() => scrollToBlock('.poster-block')}
+                    startIcon={<ColorLensIcon />}>
+                    Poster
                 </Button>
             </Box>
 
             <Box className="description-block" sx={{ my: 2 }}>
                 <Typography variant="h4">
-                    <b>What is re:ad?</b>
+                    <b>What is ReadFlect?</b>
                 </Typography>
                 <ReactMarkdown components={{
                     p: ({ children }) => (
@@ -135,24 +137,24 @@ export const Home = () => {
                 </ReactMarkdown>
             </Box>
 
+            <Box className="video-block" sx={{ my: 2 }}>
+                <Typography variant="h4">
+                    Demo Video
+                </Typography>
+                <iframe
+                    src={VIDEO_URL}
+                    allowFullScreen
+                ></iframe>
+            </Box>
+
             <Box className="poster-block" sx={{ my: 2 }}>
                 <Typography variant="h4">
                     Poster
                 </Typography>
                 <Typography variant="body2">
-                🏆 Best User Research in CS 239
+                🏆 Best User Research in UCLA CS 239 Winter 2025
                 </Typography>
                 <img className="poster-image" src={poster} alt="poster" />
-            </Box>
-
-            <Box className="video-block" sx={{ my: 2 }}>
-                <Typography variant="h4">
-                    Tutorial Video
-                </Typography>
-                <iframe
-                    src="https://www.loom.com/embed/ef1916f78287477c9aa5f9e31b305e9f?sid=729a2a90-a8b2-4625-8d33-af2bef562dc9"
-                    allowFullScreen
-                ></iframe>
             </Box>
 
             <SpeedDial

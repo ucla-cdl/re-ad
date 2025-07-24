@@ -306,9 +306,11 @@ function Flow(props: any) {
         </Box>
       </Panel>
       <Panel position="top-left">
-        <IconButton onClick={() => setShowCanvas(false)}>
-          <ArrowBack />
-        </IconButton>
+        {mode === MODE_TYPES.ANALYZING && (
+          <IconButton color="primary" onClick={() => setShowCanvas(false)}>
+            <ArrowBack />
+          </IconButton>
+        )}
         <IconButton onClick={openOverview}>{isOverview ? <CloseFullscreen /> : <OpenInFull />}</IconButton>
       </Panel>
 
