@@ -16,7 +16,7 @@ import { PDFViewer } from "pdfjs-dist/types/web/pdf_viewer";
 import { v4 as uuidv4 } from 'uuid';
 import { Canvas, ReadHighlight, ReadPurpose, ReadSession, useStorageContext } from "./StorageContext";
 import { GoogleGenAI, Type } from "@google/genai";
-import { READING_GOAL_GENERATE_PROMPT, READING_SUGGESTION_SYSTEM_PROMPT } from "../utils/prompts";
+import { READING_SUGGESTION_SYSTEM_PROMPT } from "../utils/prompts";
 import { MODE_TYPES, useWorkspaceContext } from "./WorkspaceContext";
 import { AnalyticsLevel, useAnalysisContext } from "./AnalysisContext";
 
@@ -49,7 +49,8 @@ type PaperContextData = {
 
   // Shared
   readPurposes: Record<string, ReadPurpose>;
-  createRead: (title: string, color: string) => void;
+  getNodeColor: (readPurposeId: string) => string;
+  createRead: (title: string, color: string, description?: string, readId?: string) => void;
   currentReadId: string;
   setCurrentReadId: (readId: string) => void;
   currentSessionId: string;
@@ -120,8 +121,6 @@ export const RELATIONAL_EDGE_MARKER_END = {
 
 export const UPDATE_INTERVAL = 500;
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-
 export const PaperContextProvider = ({ children }: { children: React.ReactNode }) => {
   // const { setRunTour } = useTourContext();
   const { userData, getHighlightsByUsersAndPapers, getPurposesByUserAndPaper, getCanvasUserAndPaper, getSessionsByUsersAndPapers, batchAddPurposes, batchAddHighlights, batchAddSessions, updateCanvas, getPaperFile } = useStorageContext();
@@ -153,9 +152,6 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   const [readSessions, setReadSessions] = useState<Record<string, ReadSession>>({});
   const updateIntervalRef = useRef<any>(null);
   const currentSessionIdRef = useRef<string | null>(null);
-
-  // LLM
-  const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
   useEffect(() => {
     console.log("load Paper Context", viewingPaperId);
@@ -269,12 +265,16 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   }, [displayEdgeTypes]);
 
   const generateReadingGoals = async () => {
-    if (!pdfViewerRef.current) return {} as ReadSuggestion;
+    if (!pdfViewerRef.current || !userData?.aiConfig?.enabled || !userData?.aiConfig?.apiKey) {
+      return {} as ReadSuggestion;
+    }
 
     const paperContent = await pdfViewerRef.current.getAllText();
 
     const completedGoals = Object.keys(readPurposes).length > 0 ? Object.values(readPurposes).map((r, idx) => `${idx + 1}. ${r.title}: ${r.description}`).join("\n") : "No reading goals have been completed yet.";
-    const prompt = READING_GOAL_GENERATE_PROMPT + "\n\n" + completedGoals + "\n\n" + "Below is the full text of the paper:\n" + paperContent;
+    
+    const goalGenerationPrompt = userData.aiConfig.customPrompt;
+    const prompt = goalGenerationPrompt + "\n\n" + completedGoals + "\n\n" + "Below is the full text of the paper:\n" + paperContent;
 
     const response = await query_gemini(prompt);
 
@@ -385,6 +385,15 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
 
     setNodes(currentNodes);
   };
+
+  const getNodeColor = (readPurposeId: string) => {
+    if (displayedReads.includes(readPurposeId)) {
+      return readPurposes[readPurposeId].color;
+    }
+    else {
+      return "#e6e6e6";
+    }
+  }
 
   const onConnect = (connection: Connection) => {
     selectedHighlightIds.forEach((selectedId) => {
@@ -497,10 +506,10 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     setChronologicalSeq(0);
   };
 
-  const createRead = (title: string, color: string, description?: string) => {
+  const createRead = (title: string, color: string, description?: string, readId?: string) => {
     if (!userData || !viewingPaperId) return;
 
-    const newReadId = uuidv4();
+    const newReadId = readId || uuidv4();
     setReadPurposes((prevReadRecords) => ({
       ...prevReadRecords,
       [newReadId]: {
@@ -659,6 +668,12 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   }
 
   const query_gemini = async (prompt: string, data?: any) => {
+    if (!userData?.aiConfig?.enabled || !userData?.aiConfig?.apiKey) {
+      throw new Error("AI features are not enabled or API key is missing");
+    }
+
+    const ai = new GoogleGenAI({ apiKey: userData.aiConfig.apiKey });
+    
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents:
@@ -721,6 +736,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         createGroupNode,
         displayEdgeTypes,
         setDisplayEdgeTypes,
+        getNodeColor,
         // Shared
         readPurposes,
         createRead,

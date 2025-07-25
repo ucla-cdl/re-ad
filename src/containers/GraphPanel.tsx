@@ -53,7 +53,8 @@ function Flow(props: any) {
     setOnSelectNode,
     createGroupNode,
     displayEdgeTypes,
-    setDisplayEdgeTypes
+    setDisplayEdgeTypes,
+    getNodeColor
   } = props;
 
   const { fitView } = useReactFlow();
@@ -246,7 +247,10 @@ function Flow(props: any) {
     >
       <Background />
       <Controls onFitView={() => onLayout("TB")} style={{ color: "black" }} />
-      <MiniMap />
+      <MiniMap nodeColor={(node) => {
+        const { readPurposeId } = node.data as { readPurposeId: string };
+        return getNodeColor(readPurposeId);
+      }}/>
 
       <Panel position="top-right" style={{ color: "black" }}>
         <Box sx={{ position: 'relative' }}>
@@ -342,7 +346,8 @@ export default function GraphPanel() {
     setOnSelectNode,
     createGroupNode,
     displayEdgeTypes,
-    setDisplayEdgeTypes
+    setDisplayEdgeTypes,
+    getNodeColor
   } = usePaperContext();
   const { setShowCanvas } = useAnalysisContext();
 
@@ -367,6 +372,7 @@ export default function GraphPanel() {
           createGroupNode={createGroupNode}
           displayEdgeTypes={displayEdgeTypes}
           setDisplayEdgeTypes={setDisplayEdgeTypes}
+          getNodeColor={getNodeColor}
         />
       </ReactFlowProvider>
 

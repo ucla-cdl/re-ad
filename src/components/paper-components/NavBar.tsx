@@ -23,13 +23,14 @@ import {
   CircularProgress,
   Switch
 } from "@mui/material";
-import { AddCircleOutline, Close, TipsAndUpdates, KeyboardArrowDown, Save, MenuBook, Analytics, Edit } from "@mui/icons-material";
+import { AddCircleOutline, Close, TipsAndUpdates, KeyboardArrowDown, Save, MenuBook, Analytics, Edit, Settings, Lightbulb } from "@mui/icons-material";
 import logo from "/re-ad-icon.svg";
 import { useNavigate } from "react-router-dom";
 import { ChromePicker } from 'react-color';
 import { MODE_TYPES, useWorkspaceContext } from "../../contexts/WorkspaceContext";
 import { useStorageContext } from "../../contexts/StorageContext";
 import { useAnalysisContext } from "../../contexts/AnalysisContext";
+import ProfilePanel from "../../containers/ProfilePanel";
 
 const colorPalette = [
   "#FFADAD",
@@ -59,24 +60,38 @@ export default function NavBar() {
   const [openColorPicker, setOpenColorPicker] = useState(false);
   const [readsMenuAnchor, setReadsMenuAnchor] = useState<null | HTMLElement>(null);
 
+  const [isEditingRead, setIsEditingRead] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingText, setLoadingText] = useState<string>("");
-
-  const [enableLLM, _setEnableLLM] = useState(false);
+  const [openProfileSettings, setOpenProfileSettings] = useState(false);
+  const [aiSuggestionsExpanded, setAiSuggestionsExpanded] = useState(false);
 
   const handleCreatingNewRead = async () => {
     setOpenReadDialog(true);
+  }
 
-    if (enableLLM) {
-      setIsGeneratingReadingSuggestions(true);
-      const readingSuggestion = await generateReadingGoals();
-      if (!readingSuggestion) {
-        setIsGeneratingReadingSuggestions(false);
-        return;
+  const handleToggleAISuggestions = async () => {
+    if (!aiSuggestionsExpanded) {
+      // Expanding - query AI only if we don't have cached results
+      setAiSuggestionsExpanded(true);
+
+      if (!readingGoals && !isGeneratingReadingSuggestions) {
+        setIsGeneratingReadingSuggestions(true);
+        try {
+          const readingSuggestion = await generateReadingGoals();
+          if (readingSuggestion) {
+            setReadingProgress(readingSuggestion.readingProgress);
+            setReadingGoals(readingSuggestion.readingGoals);
+          }
+        } catch (error) {
+          console.error('Error generating AI suggestions:', error);
+        } finally {
+          setIsGeneratingReadingSuggestions(false);
+        }
       }
-      setReadingProgress(readingSuggestion.readingProgress);
-      setReadingGoals(readingSuggestion.readingGoals);
-      setIsGeneratingReadingSuggestions(false);
+    } else {
+      // Collapsing - just hide the content, keep cached data
+      setAiSuggestionsExpanded(false);
     }
   }
 
@@ -91,7 +106,12 @@ export default function NavBar() {
       return;
     }
 
-    createRead(title, color);
+    if (isEditingRead) {
+      createRead(title, color, "", currentReadId);
+    } else {
+      createRead(title, color);
+    }
+
     handleCancel();
   };
 
@@ -100,6 +120,12 @@ export default function NavBar() {
     setColor(null);
     setOpenReadDialog(false);
     setOpenColorPicker(false);
+    setIsEditingRead(false);
+    // Reset AI suggestions state for next time
+    setAiSuggestionsExpanded(false);
+    setIsGeneratingReadingSuggestions(false);
+    setReadingProgress("");
+    setReadingGoals(null);
   };
 
   const handleStartTour = () => {
@@ -150,6 +176,7 @@ export default function NavBar() {
   const onEditRead = () => {
     setTitle(readPurposes[currentReadId]?.title || "");
     setColor(readPurposes[currentReadId]?.color || null);
+    setIsEditingRead(true);
     setOpenReadDialog(true);
   }
 
@@ -310,15 +337,7 @@ export default function NavBar() {
       </Box>
 
       <Box sx={{ mx: 2, display: 'flex', gap: 2, alignItems: "center", justifyContent: "flex-end" }}>
-        {mode === 'reading' && (
-          <IconButton
-            onClick={saveReadingData}
-            disabled={loading}
-            size="small"
-          >
-            <Save fontSize="small" />
-          </IconButton>
-        )}
+        {/* Mode Switch */}
         <Box className="nav-mode-switch">
           <MenuBook sx={{ boxSizing: "border-box", color: mode === "reading" ? "primary.main" : "text.secondary" }} />
           <Switch
@@ -337,26 +356,77 @@ export default function NavBar() {
           />
           <Analytics sx={{ boxSizing: "border-box", color: mode === "analyzing" ? "primary.main" : "text.secondary" }} />
         </Box>
+
+        {/* Save Button */}
+        {mode === 'reading' && (
+          <IconButton
+            onClick={saveReadingData}
+            disabled={loading}
+            size="small"
+          >
+            <Save fontSize="small" />
+          </IconButton>
+        )}
+
+        {/* Profile Settings Button */}
+        <IconButton
+          onClick={() => setOpenProfileSettings(true)}
+          size="small"
+          sx={{ color: 'text.secondary' }}
+        >
+          <Settings fontSize="small" />
+        </IconButton>
       </Box>
 
       {/* Add new read dialog - Only in reading mode */}
       {mode === 'reading' && (
         <Dialog open={openReadDialog}>
-          <DialogTitle>Create New Read</DialogTitle>
-          <DialogContent sx={{ minWidth: "25vw", px: 4, py: 2, boxSizing: "border-box", display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+          <DialogTitle>{isEditingRead ? "Edit Read" : "Create New Read"}</DialogTitle>
+          <DialogContent sx={{
+            width: "35vw",
+            display: "flex",
+            boxSizing: "border-box !important",
+            flexDirection: "column",
+            alignItems: "flex-start",
+            gap: 2,
+            p: 3
+          }}
+          >
             <TextField
-              fullWidth
+              sx={{ width: "80%", my: 1 }}
               multiline
               label="Title"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              sx={{ my: 1 }}
             />
 
-            {!enableLLM ? <></> :
-              <>
-                {isGeneratingReadingSuggestions ? (
-                  <Box sx={{ my: 2, display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+            {/* AI Suggestions for the New Reading Purpose */}
+            {!isEditingRead && (
+              <Tooltip title={userData?.aiConfig?.enabled ?
+                "See ReadFlect's evaluation on your reading progress and suggested reading goals" :
+                "AI features are not enabled. Please enable it in your profile settings to see ReadFlect's evaluation on your reading progress and suggested reading goals."
+              }>
+                <Box>
+                  <Button
+                    variant={aiSuggestionsExpanded ? "contained" : "outlined"}
+                    onClick={handleToggleAISuggestions}
+                    disabled={!userData?.aiConfig?.enabled}
+                    sx={{
+                      borderRadius: 10,
+                      alignSelf: 'flex-start',
+                    }}
+                    startIcon={<Lightbulb />}
+                  >
+                    {aiSuggestionsExpanded ? 'Hide ReadFlect Suggestions' : 'ReadFlect Suggestions'}
+                  </Button>
+                </Box>
+              </Tooltip>
+            )}
+
+            {userData?.aiConfig?.enabled && aiSuggestionsExpanded && (
+              <Box sx={{ mb: 1, p: 1, boxSizing: "border-box", display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%" }}>
+                {isGeneratingReadingSuggestions && (
+                  <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
                     <p style={{
                       animation: "pulse 1.5s ease-in-out infinite",
                       fontSize: "16px",
@@ -374,16 +444,18 @@ export default function NavBar() {
                 `}
                     </style>
                   </Box>
-                ) : (
-                  <Box sx={{ my: 2, display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%", gap: 2 }}>
-                    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%", gap: 1 }}>
+                )}
+
+                {readingGoals && !isGeneratingReadingSuggestions && (
+                  <Box sx={{ boxSizing: "border-box", display: "flex", flexDirection: "column", alignItems: "flex-start", width: "85%", gap: 2 }}>
+                    <Box sx={{ boxSizing: "border-box", display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%", gap: 1 }}>
                       <Typography variant="body1" sx={{ fontWeight: "bold" }}>Reading Progress:</Typography>
                       <Typography variant="body1">{readingProgress}</Typography>
                     </Box>
-                    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%", gap: 1 }}>
+                    <Box sx={{ boxSizing: "border-box", display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%", gap: 1 }}>
                       <Typography variant="body1" sx={{ fontWeight: "bold" }}>Suggested Reading Goals:</Typography>
                       <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
-                        {readingGoals && readingGoals.map((goal) => (
+                        {readingGoals.map((goal) => (
                           <Tooltip title={goal.goalDescription} key={goal.goalName} arrow placement="right">
                             <Chip label={goal.goalName} variant="outlined" onClick={() => setTitle(goal.goalName)} />
                           </Tooltip>
@@ -392,10 +464,11 @@ export default function NavBar() {
                     </Box>
                   </Box>
                 )}
-              </>
-            }
+              </Box>
+            )}
 
-            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1, mt: 2 }}>
+            {/* Color Palette Picker for the New Reading Purpose */}
+            <Box sx={{ boxSizing: "border-box", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1, p: 1 }}>
               <Typography variant="body1" sx={{ fontWeight: "bold" }}>Color Palette:</Typography>
               <Box sx={{ display: "flex", flexDirection: "row", alignItems: "center", justifyItems: "flex-start", gap: 1 }}>
                 {colorPalette.map((c) => (
@@ -412,14 +485,20 @@ export default function NavBar() {
                   />
                 ))}
                 {openColorPicker ? (
-                  <IconButton onClick={() => {
-                    setOpenColorPicker(false);
-                    setColor(null);
-                  }}>
+                  <IconButton
+                    size="small"
+                    onClick={() => {
+                      setOpenColorPicker(false);
+                      setColor(null);
+                    }}
+                  >
                     <Close />
                   </IconButton>
                 ) : (
-                  <IconButton onClick={() => setOpenColorPicker(true)}>
+                  <IconButton
+                    size="small"
+                    onClick={() => setOpenColorPicker(true)}
+                  >
                     <AddCircleOutline />
                   </IconButton>
                 )}
@@ -442,7 +521,7 @@ export default function NavBar() {
               Cancel
             </Button>
             <Button variant="text" onClick={handleCreateRead}>
-              Create
+              {isEditingRead ? "Save" : "Create"}
             </Button>
           </DialogActions>
         </Dialog>
@@ -461,6 +540,12 @@ export default function NavBar() {
         <CircularProgress color="inherit" />
         <Typography variant="h6">{loadingText}</Typography>
       </Backdrop>
+
+      {/* Profile Settings Dialog */}
+      <ProfilePanel
+        open={openProfileSettings}
+        onClose={() => setOpenProfileSettings(false)}
+      />
     </div>
   );
 }

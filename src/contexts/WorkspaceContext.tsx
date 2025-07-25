@@ -36,7 +36,12 @@ export const WorkspaceProvider = ({ children }: { children: React.ReactNode }) =
     }, [userData]);
 
     const loadUsersAndPapers = async () => {
-        if (!userData) return;
+        if (!userData) {
+            setUsersDict({});
+            setPapersDict({});
+            setViewingPaperId(null);
+            return;
+        };
 
         // TODO: load users that the user has access to (e.g. friends, classmates, etc.)
         if (userData.role === UserRole.STUDENT) {

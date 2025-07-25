@@ -40,10 +40,11 @@ import icon from "/re-ad-icon.svg"
 import '../styles/PapersHub.css';
 import { MODE_TYPES, useWorkspaceContext } from '../contexts/WorkspaceContext';
 import { useNavigate } from 'react-router-dom';
+import ProfilePanel from './ProfilePanel';
 
 type uploadPaperData = {
     title: string;
-    file: File;
+    file: File | null;
 }
 
 export const PapersHub = () => {
@@ -69,7 +70,7 @@ export const PapersHub = () => {
     const [addPaperDialogOpen, setAddPaperDialogOpen] = useState(false);
     const [uploadPaper, setUploadPaper] = useState<uploadPaperData>({
         title: '',
-        file: new File([], '')
+        file: null
     });
 
     const { userData, setUserData, loadUserData, updateUser, getUserByEmail, addPaperData, addPaperFile, addPaperToUser } = useStorageContext();
@@ -77,8 +78,7 @@ export const PapersHub = () => {
     const navigate = useNavigate();
 
     const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(null);
-    const [editProfileDialogOpen, setEditProfileDialogOpen] = useState(false);
-    const [editedUserName, setEditedUserName] = useState('');
+    const [profileSettingsOpen, setProfileSettingsOpen] = useState(false);
 
     useEffect(() => {
         setMode(MODE_TYPES.READING);
@@ -96,7 +96,7 @@ export const PapersHub = () => {
     const handleAddPaper = () => {
         setUploadPaper({
             title: '',
-            file: new File([], '')
+            file: null
         });
         setAddPaperDialogOpen(true);
     };
@@ -141,7 +141,7 @@ export const PapersHub = () => {
             await loadUserData(userData.id);
 
             // Close dialog
-            setAddPaperDialogOpen(false);
+            handleCancelAddPaper();
 
             console.log('Paper saved successfully');
         } catch (error) {
@@ -274,28 +274,11 @@ export const PapersHub = () => {
     };
 
     const handleEditProfile = () => {
-        setEditedUserName(userData?.name || '');
-        setEditProfileDialogOpen(true);
+        setProfileSettingsOpen(true);
         setUserMenuAnchor(null);
     };
 
-    const handleSaveProfile = async () => {
-        if (!userData || !editedUserName.trim()) return;
 
-        try {
-            const updatedUserData = {
-                ...userData,
-                name: editedUserName.trim()
-            };
-
-            await updateUser(updatedUserData);
-            await loadUserData(userData.id);
-            setEditProfileDialogOpen(false);
-        } catch (error) {
-            console.error('Error updating profile:', error);
-            alert('Failed to update profile. Please try again.');
-        }
-    };
 
     const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
         setUserMenuAnchor(event.currentTarget);
@@ -308,6 +291,14 @@ export const PapersHub = () => {
     const handlePaperClick = (paperId: string) => {
         setViewingPaperId(paperId);
         navigate('/paper-reader');
+    }
+
+    const handleCancelAddPaper = () => {
+        setAddPaperDialogOpen(false);
+        setUploadPaper({
+            title: '',
+            file: null
+        });
     }
 
     return (
@@ -367,7 +358,7 @@ export const PapersHub = () => {
                         </Box>
                     ) : (
                         <Button variant="contained" onClick={() => setLoginDialogOpen(true)}>
-                            Login / Register
+                            Login
                         </Button>
                     )}
                 </Box>
@@ -505,13 +496,13 @@ export const PapersHub = () => {
                                 onChange={(e) => setConfirmPassword(e.target.value)}
                             />
                         )}
-                        <Button
+                        {/* <Button
                             variant="text"
                             onClick={() => setIsLoginMode(!isLoginMode)}
                             sx={{ alignSelf: 'flex-start', textTransform: 'none' }}
                         >
                             {isLoginMode ? "Don't have an account? Register" : "Already have an account? Login"}
-                        </Button>
+                        </Button> */}
                     </Stack>
                 </DialogContent>
                 <DialogActions>
@@ -532,41 +523,45 @@ export const PapersHub = () => {
                 <DialogTitle>
                     Add New Paper
                 </DialogTitle>
-                <DialogContent sx={{ pt: 2 }}>
-                    <Stack spacing={3}>
-                        {/* Title */}
+                <DialogContent>
+                    <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center' }}>
                         <TextField
                             label="Title"
                             value={uploadPaper?.title}
                             onChange={(e) => setUploadPaper({ ...uploadPaper, title: e.target.value })}
                             fullWidth
-                            required
                         />
 
-                        <Box>
+                        <Button
+                            component="label"
+                            role='undefined'
+                            tabIndex={-1}
+                            variant="outlined"
+                            startIcon={<UploadIcon />}   
+                        >
+                            {uploadPaper?.file ? uploadPaper.file.name : 'Choose PDF File'}
                             <input
                                 type="file"
                                 accept="application/pdf"
                                 onChange={handleFileChange}
-                                style={{ display: 'none' }}
+                                style={{
+                                    display: 'none', clip: 'rect(0 0 0 0)',
+                                    clipPath: 'inset(50%)',
+                                    height: 1,
+                                    overflow: 'hidden',
+                                    position: 'absolute',
+                                    bottom: 0,
+                                    left: 0,
+                                    whiteSpace: 'nowrap',
+                                    width: 1,
+                                }}
                                 id="pdf-upload"
                             />
-                            <label htmlFor="pdf-upload">
-                                <Button
-                                    variant="outlined"
-                                    component="span"
-                                    startIcon={<UploadIcon />}
-                                    fullWidth
-                                    sx={{ py: 2 }}
-                                >
-                                    {uploadPaper?.file ? uploadPaper.file.name : 'Choose PDF File'}
-                                </Button>
-                            </label>
-                        </Box>
-                    </Stack>
+                        </Button>
+                    </Box>
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 3 }}>
-                    <Button onClick={() => setAddPaperDialogOpen(false)}>
+                    <Button onClick={handleCancelAddPaper} variant="outlined">
                         Cancel
                     </Button>
                     <Button
@@ -578,43 +573,11 @@ export const PapersHub = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Edit Profile Dialog */}
-            <Dialog open={editProfileDialogOpen} onClose={() => setEditProfileDialogOpen(false)}>
-                <DialogTitle>Edit Profile</DialogTitle>
-                <DialogContent>
-                    <Stack spacing={2} sx={{ mt: 1, minWidth: 300 }}>
-                        <TextField
-                            label="Name"
-                            value={editedUserName}
-                            onChange={(e) => setEditedUserName(e.target.value)}
-                            fullWidth
-                            autoFocus
-                        />
-                        <TextField
-                            label="Email"
-                            value={userData?.email || ''}
-                            disabled
-                            fullWidth
-                            helperText="Email cannot be changed"
-                        />
-                        <TextField
-                            label="Role"
-                            value={userData?.role || ''}
-                            disabled
-                            fullWidth
-                            helperText="Role is assigned by administrators"
-                        />
-                    </Stack>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setEditProfileDialogOpen(false)}>
-                        Cancel
-                    </Button>
-                    <Button onClick={handleSaveProfile} variant="contained">
-                        Save Changes
-                    </Button>
-                </DialogActions>
-            </Dialog>
+            {/* Profile Settings Dialog */}
+            <ProfilePanel 
+                open={profileSettingsOpen} 
+                onClose={() => setProfileSettingsOpen(false)} 
+            />
         </Box>
     );
 };

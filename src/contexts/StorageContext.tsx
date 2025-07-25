@@ -16,6 +16,11 @@ export type UserData = {
     password: string;
     name: string;
     role: UserRole;
+    aiConfig?: {
+        enabled: boolean;
+        apiKey: string;
+        customPrompt: string;
+    };
 }
 
 export type UserPaperTableData = {
@@ -189,6 +194,9 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
     const updateUser = async (userData: UserData) => {
         try {
             await setDoc(doc(usersCollectionRef, userData.id), userData);
+            if (userData.id === localStorage.getItem('userId')) {
+                setUserData(userData);
+            }
             console.log('User updated with ID:', userData.id);
         } catch (error) {
             console.error('Error updating user:', error);

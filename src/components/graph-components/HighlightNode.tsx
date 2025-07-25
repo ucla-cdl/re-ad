@@ -11,9 +11,8 @@ export default function HighlightNode({ data }: NodeProps<Node>) {
     type: string;
     content: string;
   };
-  const { readPurposes, displayedReads, selectedHighlightIds } = usePaperContext();
-  const { color } = readPurposes[readPurposeId] || { color: "#e6e6e6" };
-  const isDisplayed = displayedReads.includes(readPurposeId);
+  const { selectedHighlightIds, getNodeColor } = usePaperContext();
+  const color = getNodeColor(readPurposeId);
 
   const connection = useConnection();
   const isSelected = selectedHighlightIds.includes(id);
@@ -23,8 +22,8 @@ export default function HighlightNode({ data }: NodeProps<Node>) {
     <Box
       className={`graph-node highlight-node ${isSelected ? "selected" : ""} ${isTarget ? "target" : ""}`}
       id={`node-${id}`}
-      sx={{ 
-        backgroundColor: isDisplayed ? color : "#e6e6e6",
+      sx={{
+        backgroundColor: color
       }}
     >
       <Box sx={{ width: "100%", m: 1 }}>
