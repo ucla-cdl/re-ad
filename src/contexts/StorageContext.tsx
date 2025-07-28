@@ -3,6 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
 import { getFirestore, collection, doc, setDoc, getDoc, getDocs, where, query } from "firebase/firestore";
 import { Content, Highlight } from "react-pdf-highlighter-extended";
+import { READING_GOAL_GENERATE_PROMPT } from "../utils/prompts";
 
 export enum UserRole {
     ADMIN = 'admin',
@@ -21,6 +22,12 @@ export type UserData = {
         apiKey: string;
         customPrompt: string;
     };
+}
+
+export const DEFAULT_AI_CONFIG = {
+    enabled: true,
+    apiKey: import.meta.env.VITE_GEMINI_API_KEY || '',
+    customPrompt: READING_GOAL_GENERATE_PROMPT
 }
 
 export type UserPaperTableData = {

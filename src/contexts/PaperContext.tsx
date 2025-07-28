@@ -27,6 +27,7 @@ type PaperContextData = {
   generateReadingGoals: () => Promise<ReadSuggestion>;
   highlights: Array<ReadHighlight>;
   addHighlight: (highlight: GhostHighlight) => void;
+  removeHighlight: (highlightId: string) => void;
   updateNodeData: (nodeId: string, data: Partial<NodeData>) => void;
   setHighlights: (highlights: Array<ReadHighlight>) => void;
   deleteHighlight: (highlightId: string) => void;
@@ -130,7 +131,6 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   // Paper
   const [paperUrl, setPaperUrl] = useState<string | null>(null);
   const [highlights, setHighlights] = useState<Array<ReadHighlight>>([]);
-  const [chronologicalSeq, setChronologicalSeq] = useState(0);
   const pdfViewerRef = useRef<PDFViewer | null>(null);
 
   // Shared
@@ -168,7 +168,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     if (mode === MODE_TYPES.ANALYZING) {
       loadPaperContextForAnalytics();
     }
-  }, [analyticsLevel,analyticsHighlights, analyticsPurposes, analyticsSessions, analyticsCanvasJSON]);
+  }, [analyticsLevel, analyticsHighlights, analyticsPurposes, analyticsSessions, analyticsCanvasJSON]);
 
   const resetReadingControlStates = () => {
     setCurrentReadId("");
@@ -254,10 +254,6 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   }
 
   useEffect(() => {
-    setChronologicalSeq(highlights.filter((h) => h.id.startsWith(currentReadId.toString())).length);
-  }, [currentReadId]);
-
-  useEffect(() => {
     setEdges(edges?.map((e: Edge) => ({
       ...e,
       hidden: !displayEdgeTypes.includes(e.type ?? "")
@@ -272,7 +268,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     const paperContent = await pdfViewerRef.current.getAllText();
 
     const completedGoals = Object.keys(readPurposes).length > 0 ? Object.values(readPurposes).map((r, idx) => `${idx + 1}. ${r.title}: ${r.description}`).join("\n") : "No reading goals have been completed yet.";
-    
+
     const goalGenerationPrompt = userData.aiConfig.customPrompt;
     const prompt = goalGenerationPrompt + "\n\n" + completedGoals + "\n\n" + "Below is the full text of the paper:\n" + paperContent;
 
@@ -305,12 +301,14 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   };
 
   const addHighlight = (highlight: GhostHighlight) => {
-    const id = `${currentReadId}-${chronologicalSeq}`;
+    const id = uuidv4();
 
     if (!pdfViewerRef.current) return;
     const pdfPageHeight = pdfViewerRef.current.getPageView(0).height;
     const highlightPosition = highlight.position.boundingRect.y1 + (highlight.position.boundingRect.pageNumber - 1) * pdfPageHeight;
     const posPercentage = highlightPosition / (pdfViewerRef.current.pagesCount * pdfPageHeight);
+
+    const isFirstHighlightOfPurpose = highlights.filter((h) => h.readPurposeId === currentReadId).length === 0;
 
     setHighlights((prevHighlights: Array<ReadHighlight>) => [
       ...prevHighlights,
@@ -327,7 +325,6 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     ]);
 
     // add a node to the graph
-    const isFirstHighlight = chronologicalSeq === 0;
     setNodes((prevNodes: Array<Node>) => [
       ...prevNodes,
       {
@@ -340,10 +337,10 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
           notes: "",
         },
         position: {
-          x: isFirstHighlight
+          x: isFirstHighlightOfPurpose
             ? Object.keys(readPurposes).findIndex((id) => id === currentReadId) * NODE_OFFSET_X
             : nodes[nodes.length - 1].position.x,
-          y: isFirstHighlight ? NODE_OFFSET_Y : nodes[nodes.length - 1].position.y + NODE_OFFSET_Y,
+          y: isFirstHighlightOfPurpose ? NODE_OFFSET_Y : nodes[nodes.length - 1].position.y + NODE_OFFSET_Y,
         },
         style: {
           backgroundColor: readPurposes[currentReadId].color,
@@ -351,16 +348,15 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
       },
     ]);
 
-    // add an edge to the graph
-    if (!isFirstHighlight) {
-      // TODO: should chronological link capture the switch between reads?
-      const lastId = nodes[nodes.length - 1].id;
+    // add an chronological edge to the graph
+    if (nodes.length > 0) {
+      const lastHighlightId = nodes[nodes.length - 1].id;
       setEdges((prevEdges: Array<Edge>) => [
         ...prevEdges,
         {
-          id: id,
-          source: lastId,
-          sourceHandle: `chronological-handle-${lastId}-source`,
+          id: uuidv4(),
+          source: lastHighlightId,
+          sourceHandle: `chronological-handle-${lastHighlightId}-source`,
           target: id,
           targetHandle: `chronological-handle-${id}-target`,
           type: EDGE_TYPES.CHRONOLOGICAL,
@@ -369,10 +365,39 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         },
       ]);
     }
-
-    // setSelectedHighlightIds([id]);
-    setChronologicalSeq((prevChronologicalSeq) => prevChronologicalSeq + 1);
   };
+
+  const removeHighlight = (highlightId: string) => {
+    let newEdges = [...edges];
+
+    // process connected chronological edges
+    const incomingChronologicalEdge = edges.filter((e) => e.type === EDGE_TYPES.CHRONOLOGICAL && e.target === highlightId);
+    const fromHighlightId = incomingChronologicalEdge.length > 0 ? incomingChronologicalEdge[0].source : null;
+    const outgoingChronologicalEdge = edges.filter((e) => e.type === EDGE_TYPES.CHRONOLOGICAL && e.source === highlightId);
+    const toHighlightId = outgoingChronologicalEdge.length > 0 ? outgoingChronologicalEdge[0].target : null;
+
+    if (fromHighlightId && toHighlightId) {
+      newEdges = [
+        ...newEdges,
+        {
+          id: uuidv4(),
+          source: fromHighlightId,
+          sourceHandle: `chronological-handle-${fromHighlightId}-source`,
+          target: toHighlightId,
+          targetHandle: `chronological-handle-${toHighlightId}-target`,
+          type: EDGE_TYPES.CHRONOLOGICAL,
+          markerEnd: CHRONOLOGICAL_EDGE_MARKER_END,
+          hidden: !displayEdgeTypes.includes(EDGE_TYPES.CHRONOLOGICAL)
+        },
+      ];
+    }
+
+    newEdges = newEdges.filter((e) => e.id !== highlightId && e.source !== highlightId && e.target !== highlightId);
+    setEdges(newEdges);
+    setNodes(nodes.filter((n) => n.id !== highlightId));
+    setHighlights(highlights.filter((h) => h.id !== highlightId));
+    setSelectedHighlightIds((prev) => prev.filter((id) => id !== highlightId));
+  }
 
   const updateNodeData = (nodeId: string, data: Partial<NodeData>) => {
     let currentNodes = [...nodes];
@@ -423,7 +448,6 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
 
     // Create a new group node
     let graphNodes = [...nodes];
-    // const id = `${currentReadId}-${chronologicalSeq}`;
     const newGroupNodeId = uuidv4();
     const selectedNodes = nodes.filter(node => childNodeIds.includes(node.id));
 
@@ -434,13 +458,11 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         id: newGroupNodeId,
         readPurposeId: currentReadId,
         label: label || `Group (${childNodeIds.length} nodes)`,
-        // children: nodeIds,
         notes: "",
       },
       position: {
-        // Position the group node at the average position of its children
         x: selectedNodes.reduce((sum, node) => sum + node.position.x, 0) / selectedNodes.length + NODE_OFFSET_X,
-        y: selectedNodes.reduce((sum, node) => sum + node.position.y, 0) / selectedNodes.length, // Position slightly above
+        y: selectedNodes.reduce((sum, node) => sum + node.position.y, 0) / selectedNodes.length,
       },
       style: {
         backgroundColor: readPurposes[currentReadId].color,
@@ -482,10 +504,6 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
 
     setNodes(graphNodes);
     setEdges(prevEdges => [...prevEdges, ...newEdges]);
-
-    // Clear selection and update control states
-    // setSelectedHighlightIds([id]); // Select the newly created group
-    setChronologicalSeq((prevChronologicalSeq) => prevChronologicalSeq + 1);
   }
 
   const deleteHighlight = (highlightId: string) => {
@@ -503,7 +521,6 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     setNodes([]);
     setEdges([]);
     setSelectedHighlightIds([]);
-    setChronologicalSeq(0);
   };
 
   const createRead = (title: string, color: string, description?: string, readId?: string) => {
@@ -673,7 +690,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     }
 
     const ai = new GoogleGenAI({ apiKey: userData.aiConfig.apiKey });
-    
+
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents:
@@ -719,6 +736,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         highlights,
         setHighlights,
         addHighlight,
+        removeHighlight,
         updateNodeData,
         deleteHighlight,
         resetHighlights,

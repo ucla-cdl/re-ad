@@ -57,10 +57,10 @@ export const Home = () => {
             name: "Blog",
             url: "https://medium.com/@xshaw2002/user-research-blog-augment-data-intensive-reading-d3fd5546ad55/preview"
         },
-        // {
-        //     name: "Try ReadFlect",
-        //     url: "./#/papers"
-        // }
+        {
+            name: "Try ReadFlect",
+            url: "./#/papers"
+        }
     ]
 
     const VIDEO_URL = "https://drive.google.com/file/d/1MysOo8PKdM1bXcQ9CRU0GmFwAZ2jyBoE/preview";
@@ -71,7 +71,7 @@ export const Home = () => {
 
     return (
         <Box className="home">
-            <Box className="title-block" sx={{ display: "flex", flexDirection: "row", alignItems: "center", p: 2 }}>
+            <Box className="title-block" sx={{ display: "flex", flexDirection: "row", alignItems: "center", p: 2, gap: 1.5 }}>
                 <img src={icon} alt="logo" style={{ width: "80px" }} />
                 <Typography variant="h4" sx={{ textAlign: "center", fontWeight: "bold" }}>
                     {title}
@@ -96,16 +96,20 @@ export const Home = () => {
                 </Typography>
             </Box>
 
-            <Box className="links-block" sx={{ my: 2 }}>
+            <Button variant="contained"
+                sx={{ my: 1, border: "2px solid black", borderRadius: 5, p: 2, bgcolor: "#ffffff", color: "#000000", fontSize: "1rem" }}
+                onClick={() => window.open(links[2].url, "_blank")}
+                startIcon={<img src={icon} style={{ width: "35px", height: "35px" }} />}>
+                Try ReadFlect
+            </Button>
+
+            <Box className="links-block" sx={{ my: 1 }}>
                 <Button className="link-button" variant="contained" onClick={() => window.open(links[0].url, "_blank")} startIcon={<GitHub />}>
                     Code
                 </Button>
                 <Button className="link-button" variant="contained" onClick={() => window.open(links[1].url, "_blank")} startIcon={<AutoStories />}>
                     Blog
                 </Button>
-                {/* <Button className="link-button" variant="contained" onClick={() => window.open(links[2].url, "_blank")} startIcon={<img src={icon} style={{ width: "20px", height: "20px" }} />}>
-                    Try re:ad
-                </Button> */}
                 <Button
                     className="link-button"
                     variant="contained"
@@ -152,7 +156,7 @@ export const Home = () => {
                     Poster
                 </Typography>
                 <Typography variant="body2">
-                🏆 Best User Research in UCLA CS 239 Winter 2025
+                    🏆 Best User Research in UCLA CS 239 Winter 2025
                 </Typography>
                 <img className="poster-image" src={poster} alt="poster" />
             </Box>
@@ -173,7 +177,7 @@ export const Home = () => {
                     onClick={() => scrollToBlock('.title-block')}
                 />
                 <SpeedDialAction
-                    key="video" 
+                    key="video"
                     icon={<YouTube />}
                     tooltipTitle="Go to Video"
                     onClick={() => scrollToBlock('.video-block')}
@@ -189,7 +193,7 @@ export const Home = () => {
                     icon={<NotesIcon />}
                     tooltipTitle="Go to Description"
                     onClick={() => scrollToBlock('.description-block')}
-                />                
+                />
             </SpeedDial>
         </Box>
     )

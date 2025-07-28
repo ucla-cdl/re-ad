@@ -71,12 +71,12 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
               <ListItemText>Create Group</ListItemText>
             </MenuItem>
           )}
-          {selectedCount > 0 && (
+          {selectedCount === 1 && (
             <MenuItem onClick={onDeleteSelected}>
               <ListItemIcon>
                 <Delete fontSize="small" />
               </ListItemIcon>
-              <ListItemText>Delete Selected</ListItemText>
+              <ListItemText>Delete</ListItemText>
             </MenuItem>
           )}
         </>

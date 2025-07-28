@@ -18,7 +18,7 @@ import ChronologicalEdge from "../components/graph-components/ChronologicalEdge"
 import RelationalEdge from "../components/graph-components/RelationalEdge";
 import { usePaperContext, EDGE_TYPES } from "../contexts/PaperContext";
 import NodeEditor from "../components/node-components/NodeEditor";
-import { ArrowBack, CloseFullscreen, OpenInFull, Settings } from "@mui/icons-material";
+import { ArrowBack, CloseFullscreen, OpenInFull, Tune } from "@mui/icons-material";
 import ThemeNode from "../components/graph-components/ThemeNode";
 import ContextMenu from "../components/graph-components/ContextMenu";
 import { ConnectionLineComponent } from "../components/graph-components/utils";
@@ -54,7 +54,8 @@ function Flow(props: any) {
     createGroupNode,
     displayEdgeTypes,
     setDisplayEdgeTypes,
-    getNodeColor
+    getNodeColor,
+    removeHighlight
   } = props;
 
   const { fitView } = useReactFlow();
@@ -132,8 +133,7 @@ function Flow(props: any) {
   };
 
   const handleDeleteSelected = () => {
-    // TODO: Implement delete multiple nodes functionality
-    console.log("Delete selected nodes:", selectedHighlightIds);
+    selectedHighlightIds.forEach((id: string) => removeHighlight(id));
     handleContextMenuClose();
   };
 
@@ -179,11 +179,12 @@ function Flow(props: any) {
   };
 
   const onLayout = useCallback((direction: string) => {
-    console.log(nodes);
-    const layouted = getLayoutedElements(nodes, edges, { direction });
+    if (direction === "TB") {
+      const layouted = getLayoutedElements(nodes, edges, { direction });
 
-    setNodes([...layouted.nodes]);
-    setEdges([...layouted.edges]);
+      setNodes([...layouted.nodes]);
+      setEdges([...layouted.edges]);
+    }
 
     window.requestAnimationFrame(() => {
       fitView();
@@ -246,11 +247,11 @@ function Flow(props: any) {
       style={{ width: "100%", height: "100%" }}
     >
       <Background />
-      <Controls onFitView={() => onLayout("TB")} style={{ color: "black" }} />
+      <Controls onFitView={() => onLayout("none")} style={{ color: "black" }} />
       <MiniMap nodeColor={(node) => {
         const { readPurposeId } = node.data as { readPurposeId: string };
         return getNodeColor(readPurposeId);
-      }}/>
+      }} />
 
       <Panel position="top-right" style={{ color: "black" }}>
         <Box sx={{ position: 'relative' }}>
@@ -263,7 +264,7 @@ function Flow(props: any) {
               '&:focus': { outline: 'none' }
             }}
           >
-            <Settings />
+            <Tune />
           </IconButton>
 
           {settingsOpen && (
@@ -347,6 +348,7 @@ export default function GraphPanel() {
     createGroupNode,
     displayEdgeTypes,
     setDisplayEdgeTypes,
+    removeHighlight,
     getNodeColor
   } = usePaperContext();
   const { setShowCanvas } = useAnalysisContext();
@@ -373,6 +375,7 @@ export default function GraphPanel() {
           displayEdgeTypes={displayEdgeTypes}
           setDisplayEdgeTypes={setDisplayEdgeTypes}
           getNodeColor={getNodeColor}
+          removeHighlight={removeHighlight}
         />
       </ReactFlowProvider>
 

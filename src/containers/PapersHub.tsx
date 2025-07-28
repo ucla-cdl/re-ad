@@ -34,7 +34,7 @@ import {
     Edit as EditIcon,
     MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
-import { useStorageContext, PaperData, UserRole } from '../contexts/StorageContext';
+import { useStorageContext, PaperData, UserRole, DEFAULT_AI_CONFIG } from '../contexts/StorageContext';
 import { v4 as uuidv4 } from 'uuid';
 import icon from "/re-ad-icon.svg"
 import '../styles/PapersHub.css';
@@ -205,7 +205,8 @@ export const PapersHub = () => {
                 email: loginEmail,
                 password: loginPassword,
                 name: loginEmail.split('@')[0],
-                role: UserRole.STUDENT
+                role: UserRole.STUDENT,
+                aiConfig: DEFAULT_AI_CONFIG
             });
 
             localStorage.setItem('userId', userId);
@@ -307,7 +308,7 @@ export const PapersHub = () => {
             <Box sx={{ mb: 4 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <img height={40} src={icon} alt="re:ad" />
+                        <img height={40} src={icon} alt="re:ad" onClick={() => navigate('/')}/>
                         <Typography variant="h4" component="h1" fontWeight="bold">
                             Papers Hub
                         </Typography>
@@ -496,13 +497,13 @@ export const PapersHub = () => {
                                 onChange={(e) => setConfirmPassword(e.target.value)}
                             />
                         )}
-                        {/* <Button
+                        <Button
                             variant="text"
                             onClick={() => setIsLoginMode(!isLoginMode)}
                             sx={{ alignSelf: 'flex-start', textTransform: 'none' }}
                         >
                             {isLoginMode ? "Don't have an account? Register" : "Already have an account? Login"}
-                        </Button> */}
+                        </Button>
                     </Stack>
                 </DialogContent>
                 <DialogActions>
