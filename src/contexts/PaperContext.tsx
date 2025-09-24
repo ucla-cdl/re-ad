@@ -144,9 +144,9 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   const [nodes, setNodes, onNodesChange] = useNodesState([] as Node[]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([] as Edge[]);
   const [onSelectNode, setOnSelectNode] = useState<boolean>(false);
-  const [displayEdgeTypes, setDisplayEdgeTypes] = useState<Array<string>>([EDGE_TYPES.CHRONOLOGICAL, EDGE_TYPES.RELATIONAL]);
+  const [displayEdgeTypes, setDisplayEdgeTypes] = useState<Array<string>>([EDGE_TYPES.RELATIONAL]);
   const NODE_OFFSET_X = 150;
-  const NODE_OFFSET_Y = 150;
+  const NODE_OFFSET_Y = 250;
 
   // Read Log
   const [readSessions, setReadSessions] = useState<Record<string, ReadSession>>({});
@@ -176,7 +176,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     setDisplayedReads([]);
     currentSessionIdRef.current = null;
     setSelectedHighlightIds([]);
-    setDisplayEdgeTypes([EDGE_TYPES.CHRONOLOGICAL, EDGE_TYPES.RELATIONAL]);
+    setDisplayEdgeTypes([EDGE_TYPES.RELATIONAL]);
   };
 
   const resetPaperContext = () => {
@@ -267,7 +267,17 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
 
     const paperContent = await pdfViewerRef.current.getAllText();
 
-    const completedGoals = Object.keys(readPurposes).length > 0 ? Object.values(readPurposes).map((r, idx) => `${idx + 1}. ${r.title}: ${r.description}`).join("\n") : "No reading goals have been completed yet.";
+    let completedGoals = "";
+    if (Object.keys(readPurposes).length === 0) {
+      completedGoals = "No reading goals have been completed yet.";
+    }
+    else {
+      Object.values(readPurposes).forEach((r, idx) => {
+        completedGoals += `${idx + 1}. ${r.title}: ${r.description}\n`;
+        const relatedHighlights = nodes.filter((n) => n.data.readPurposeId === r.id);
+        completedGoals += `- Related Highlights: ${relatedHighlights.map((n) => n.data.label).join(", ")}\n\n`;
+      });
+    }
 
     const goalGenerationPrompt = userData.aiConfig.customPrompt;
     const prompt = goalGenerationPrompt + "\n\n" + completedGoals + "\n\n" + "Below is the full text of the paper:\n" + paperContent;
@@ -275,6 +285,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
     const response = await query_gemini(prompt);
 
     if (response) {
+      console.log("Generated reading goals", response);
       return JSON.parse(response) as ReadSuggestion;
     }
 
@@ -504,6 +515,8 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
 
     setNodes(graphNodes);
     setEdges(prevEdges => [...prevEdges, ...newEdges]);
+
+    setSelectedHighlightIds([]);
   }
 
   const deleteHighlight = (highlightId: string) => {
@@ -535,7 +548,7 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
         userId: userData.id,
         title,
         color,
-        description,
+        description: description || "",
       },
     }));
     setCurrentReadId(newReadId);

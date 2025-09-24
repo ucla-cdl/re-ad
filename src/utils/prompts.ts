@@ -32,12 +32,15 @@ const INTENTION_FRAMEWORK_PROMPT = `
 `
 
 export const READING_GOAL_GENERATE_PROMPT = `
-You will be provided with (1) the full text of an academic paper and (2) a list of reading goals that the user has already completed.
+You will be provided with:
+(1) the full text of an academic paper,
+(2) a list of reading goals that the user has already completed together with their highlights under each goal.
 
 Your task is to: 
 (1) first understand the paper, 
-(2) then provide a brief assessment of the user's current reading progress using the provided reading framework (note: if no reading goals have been completed, the user should start with level 0),
-(3) finally generate ${READING_GOAL_NUMBER} potential reading goals and their descriptions according to the provided intention framework.
+(2) then provide a brief and concise assessment of the user's current reading progress using the provided reading framework (note: if no reading goals have been completed, the user should start with level 0),
+(3) finally generate ${READING_GOAL_NUMBER} potential reading goals according to the provided intention framework,
+(4) for each goal, the description should be concise and to the point. You should decouple the description into three key actions that the user should take to achieve the goal.
 
 ${READING_FRAMEWORK_PROMPT}
 

@@ -44,23 +44,29 @@ export const WorkspaceProvider = ({ children }: { children: React.ReactNode }) =
         };
 
         // TODO: load users that the user has access to (e.g. friends, classmates, etc.)
-        if (userData.role === UserRole.STUDENT) {
-            setUsersDict({
-                [userData.id]: userData,
-            });
-        }
-        else {
-            const users = await getAllUsers();
-            setUsersDict(users.reduce((acc, user) => {
-                acc[user.id] = user;
-                return acc;
-            }, {} as Record<string, UserData>));
+        let users = [], paperIds = [], papers = [];
+        switch (userData.role) {
+            case UserRole.STUDENT:
+            case UserRole.TEACHER:
+                users = [userData];
+                break;
+            case UserRole.ADMIN:
+                users = await getAllUsers();
+                break;
         }
 
-        // load papers that the user has access to
-        const userPaperTableData = await getPapersByUser(userData.id);
-        const paperIds = userPaperTableData.map(data => data.paperId);
-        const papers = await getPaperDataById(paperIds);
+        for (const user of users) {
+            const userPaperTableData = await getPapersByUser(user.id);
+            paperIds.push(...userPaperTableData.map(data => data.paperId));
+        }
+
+        papers = await getPaperDataById(paperIds);
+
+        setUsersDict(users.reduce((acc, user) => {
+            acc[user.id] = user;
+            return acc;
+        }, {} as Record<string, UserData>));
+
         setPapersDict(papers.reduce((acc, paper) => {
             acc[paper.id] = paper;
             return acc;

@@ -52,7 +52,7 @@ export const PaperSelector = () => {
     };
 
     const renderPaperList = () => (
-        <Box sx={{ flex: (mode === MODE_TYPES.ANALYZING && userData?.role === UserRole.TEACHER) ? '1 1 50%' : '1 1 100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <Box sx={{ flex: (mode === MODE_TYPES.ANALYZING && userData?.role !== UserRole.STUDENT) ? '1 1 50%' : '1 1 100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <Typography variant="h6" sx={{ mb: 2, color: 'text.primary' }}>
                 Paper List
             </Typography>
@@ -182,7 +182,7 @@ export const PaperSelector = () => {
     );
 
     const renderUserList = () => {
-        if (mode !== MODE_TYPES.ANALYZING || userData?.role !== UserRole.TEACHER) return null;
+        if (mode !== MODE_TYPES.ANALYZING || userData?.role === UserRole.STUDENT) return null;
 
         return (
             <>

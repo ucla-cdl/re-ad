@@ -23,14 +23,13 @@ import {
   CircularProgress,
   Switch
 } from "@mui/material";
-import { AddCircleOutline, Close, TipsAndUpdates, KeyboardArrowDown, Save, MenuBook, Analytics, Edit, Settings, Lightbulb } from "@mui/icons-material";
+import { AddCircleOutline, Close, TipsAndUpdates, KeyboardArrowDown, Save, MenuBook, Analytics, Edit, Lightbulb } from "@mui/icons-material";
 import logo from "/re-ad-icon.svg";
 import { useNavigate } from "react-router-dom";
 import { ChromePicker } from 'react-color';
 import { MODE_TYPES, useWorkspaceContext } from "../../contexts/WorkspaceContext";
 import { useStorageContext } from "../../contexts/StorageContext";
 import { useAnalysisContext } from "../../contexts/AnalysisContext";
-import ProfilePanel from "../../containers/ProfilePanel";
 
 const colorPalette = [
   "#FFADAD",
@@ -63,7 +62,6 @@ export default function NavBar() {
   const [isEditingRead, setIsEditingRead] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingText, setLoadingText] = useState<string>("");
-  const [openProfileSettings, setOpenProfileSettings] = useState(false);
   const [aiSuggestionsExpanded, setAiSuggestionsExpanded] = useState(false);
 
   const handleCreatingNewRead = async () => {
@@ -86,6 +84,7 @@ export default function NavBar() {
         } catch (error) {
           console.error('Error generating AI suggestions:', error);
         } finally {
+          console.log(readingProgress);
           setIsGeneratingReadingSuggestions(false);
         }
       }
@@ -367,15 +366,6 @@ export default function NavBar() {
             <Save fontSize="small" />
           </IconButton>
         )}
-
-        {/* Profile Settings Button */}
-        <IconButton
-          onClick={() => setOpenProfileSettings(true)}
-          size="small"
-          sx={{ color: 'text.secondary' }}
-        >
-          <Settings fontSize="small" />
-        </IconButton>
       </Box>
 
       {/* Add new read dialog - Only in reading mode */}
@@ -383,7 +373,7 @@ export default function NavBar() {
         <Dialog open={openReadDialog}>
           <DialogTitle>{isEditingRead ? "Edit Read" : "Create New Read"}</DialogTitle>
           <DialogContent sx={{
-            width: "35vw",
+            width: "500px",
             display: "flex",
             boxSizing: "border-box !important",
             flexDirection: "column",
@@ -393,7 +383,8 @@ export default function NavBar() {
           }}
           >
             <TextField
-              sx={{ width: "80%", my: 1 }}
+              sx={{ my: 1 }}
+              fullWidth
               multiline
               label="Title"
               value={title}
@@ -456,7 +447,7 @@ export default function NavBar() {
                       <Typography variant="body1" sx={{ fontWeight: "bold" }}>Suggested Reading Goals:</Typography>
                       <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1 }}>
                         {readingGoals.map((goal) => (
-                          <Tooltip title={goal.goalDescription} key={goal.goalName} arrow placement="right">
+                          <Tooltip sx={{ fontSize: "14px" }} title={goal.goalDescription} key={goal.goalName} arrow placement="right">
                             <Chip label={goal.goalName} variant="outlined" onClick={() => setTitle(goal.goalName)} />
                           </Tooltip>
                         ))}
@@ -540,12 +531,6 @@ export default function NavBar() {
         <CircularProgress color="inherit" />
         <Typography variant="h6">{loadingText}</Typography>
       </Backdrop>
-
-      {/* Profile Settings Dialog */}
-      <ProfilePanel
-        open={openProfileSettings}
-        onClose={() => setOpenProfileSettings(false)}
-      />
     </div>
   );
 }

@@ -54,7 +54,7 @@ export type ReadPurpose = {
     paperId: string;
     title: string;
     color: string;
-    description?: string;
+    description: string;
 };
 
 export type ReadHighlight = Highlight & {
@@ -285,18 +285,16 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
     }
 
     const getHighlightsByUsersAndPapers = async (userIds: string[], paperIds: string[]): Promise<Record<string, ReadHighlight[]>> => {
-        const q = query(highlightsCollectionRef, where('userId', 'in', userIds), where('paperId', 'in', paperIds));
-        const querySnapshot = await getDocs(q);
-        const highlights = querySnapshot.docs.map(doc => doc.data() as ReadHighlight);
-        const grouped: Record<string, ReadHighlight[]> = {};
-        highlights.forEach(highlight => {
-            const key = `${highlight.userId}_${highlight.paperId}`;
-            if (!grouped[key]) {
-                grouped[key] = [];
+        const highlightsGroups: Record<string, ReadHighlight[]> = {};
+        for (const userId of userIds) {
+            for (const paperId of paperIds) {
+                const q = query(highlightsCollectionRef, where('userId', '==', userId), where('paperId', '==', paperId));
+                const querySnapshot = await getDocs(q);
+                const highlights = querySnapshot.docs.map(doc => doc.data() as ReadHighlight);
+                highlightsGroups[`${userId}_${paperId}`] = highlights;
             }
-            grouped[key].push(highlight);
-        });
-        return grouped;
+        }
+        return highlightsGroups;
     }
 
     const addHighlight = async (highlight: ReadHighlight): Promise<string> => {
@@ -361,24 +359,17 @@ export const StorageProvider = ({ children }: { children: React.ReactNode }) => 
         userIds: string[],
         paperIds: string[]
     ): Promise<Record<string, ReadSession[]>> => {
-        const q = query(
-            sessionsCollectionRef,
-            where('userId', 'in', userIds),
-            where('paperId', 'in', paperIds)
-        );
-        const querySnapshot = await getDocs(q);
-        const sessions = querySnapshot.docs.map(doc => doc.data() as ReadSession);
-
-        // Group by (paperId, userId) pair
-        const grouped: Record<string, ReadSession[]> = {};
-        sessions.forEach(session => {
-            const key = `${session.userId}_${session.paperId}`;
-            if (!grouped[key]) {
-                grouped[key] = [];
+        const sessionsGroups: Record<string, ReadSession[]> = {};
+        for (const userId of userIds) {
+            for (const paperId of paperIds) {
+                const q = query(sessionsCollectionRef, where('userId', '==', userId), where('paperId', '==', paperId));
+                const querySnapshot = await getDocs(q);
+                const sessions = querySnapshot.docs.map(doc => doc.data() as ReadSession);
+                sessionsGroups[`${userId}_${paperId}`] = sessions;
             }
-            grouped[key].push(session);
-        });
-        return grouped;
+        }
+
+        return sessionsGroups;
     }
 
     const addSession = async (session: ReadSession): Promise<string> => {

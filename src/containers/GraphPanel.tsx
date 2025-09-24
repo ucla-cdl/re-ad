@@ -287,23 +287,23 @@ function Flow(props: any) {
                   control={
                     <Checkbox
                       size="small"
-                      checked={displayEdgeTypes.includes(EDGE_TYPES.CHRONOLOGICAL)}
-                      onChange={() => changeDisplayEdgeTypes(EDGE_TYPES.CHRONOLOGICAL)}
-                    />
-                  }
-                  label="Chronological Link"
-                  sx={{ fontSize: '0.875rem', mb: 0.5 }}
-                />
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      size="small"
                       checked={displayEdgeTypes.includes(EDGE_TYPES.RELATIONAL)}
                       onChange={() => changeDisplayEdgeTypes(EDGE_TYPES.RELATIONAL)}
                     />
                   }
                   label="Relational Link"
                   sx={{ fontSize: '0.875rem' }}
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={displayEdgeTypes.includes(EDGE_TYPES.CHRONOLOGICAL)}
+                      onChange={() => changeDisplayEdgeTypes(EDGE_TYPES.CHRONOLOGICAL)}
+                    />
+                  }
+                  label="Chronological Link"
+                  sx={{ fontSize: '0.875rem', mb: 0.5 }}
                 />
               </FormGroup>
             </Paper>
