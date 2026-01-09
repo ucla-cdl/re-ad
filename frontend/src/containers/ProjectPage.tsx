@@ -55,7 +55,7 @@ export const Home = () => {
         },
         {
             name: "Blog",
-            url: "https://medium.com/@xshaw2002/user-research-blog-augment-data-intensive-reading-d3fd5546ad55/preview"
+            url: "https://medium.com/@xshaw2002/user-research-blog-augment-data-intensive-reading-d3fd5546ad55"
         },
         {
             name: "Try ReadFlect",
