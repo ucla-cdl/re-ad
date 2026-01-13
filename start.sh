@@ -9,7 +9,7 @@ cd backend && uvicorn main:app --host 0.0.0.0 --port 8000 &
 BACKEND_PID=$!
 
 # Start frontend in background
-cd frontend && vite dev &
+cd frontend && npm run dev &
 FRONTEND_PID=$!
 
 # Wait for both processes

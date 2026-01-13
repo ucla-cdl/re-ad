@@ -2,8 +2,8 @@ import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from models import FacetExtractionRequest, FacetExtractionResponse, FacetResponse, HealthResponse
-from services import extract_facets
+from models import FacetExtractionRequest, FacetExtractionResponse, FacetResponse, HealthResponse, PaperSummaryRequest, PaperSummaryResponse
+from services import extract_facets, generate_paper_summary
 
 # Load environment variables
 load_dotenv()
@@ -67,6 +67,38 @@ async def extract_paper_facets(request: FacetExtractionRequest):
         ]
         
         return FacetExtractionResponse(facets=facets)
+    
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@app.post("/paper/summary", response_model=PaperSummaryResponse)
+async def get_paper_summary(request: PaperSummaryRequest):
+    """
+    Generate an overall summary of a paper using Gemini AI.
+    
+    - **corpus_id**: Semantic Scholar corpus ID (e.g., "CorpusId:276903484")
+    - **text**: Raw text of the paper to summarize
+    
+    Either corpus_id or text must be provided.
+    """
+    try:
+        # Validate request
+        if not request.corpus_id and not request.text:
+            raise HTTPException(
+                status_code=400,
+                detail="Either corpus_id or text must be provided"
+            )
+        
+        # Generate summary
+        summary = await generate_paper_summary(
+            corpus_id=request.corpus_id,
+            text=request.text
+        )
+        
+        return PaperSummaryResponse(summary=summary)
     
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

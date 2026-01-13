@@ -20,7 +20,23 @@ import { READING_SUGGESTION_SYSTEM_PROMPT } from "../utils/prompts";
 import { MODE_TYPES, useWorkspaceContext } from "./WorkspaceContext";
 import { AnalyticsLevel, useAnalysisContext } from "./AnalysisContext";
 
+export const REPRESENTATION_TYPES = {
+  NOTE_DIAGRAM: "Notes",
+  LLM_SUMMARY: "Summary",
+  FACETS: "Facets",
+  KNOWLEDGE_GRAPH: "Knowledge Graph",
+  TREE: "Tree",
+}
+
+export type RepresentationType = typeof REPRESENTATION_TYPES[keyof typeof REPRESENTATION_TYPES];
+
 type PaperContextData = {
+  // Representation
+  representation: RepresentationType;
+  setRepresentation: (representation: RepresentationType) => void;
+  representationData: Record<RepresentationType, any>;
+  setRepresentationData: (representationData: Record<RepresentationType, any>) => void;
+
   // Paper
   paperUrl: string | null;
   setPaperUrl: (paperUrl: string | null) => void;
@@ -132,6 +148,10 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   const [paperUrl, setPaperUrl] = useState<string | null>(null);
   const [highlights, setHighlights] = useState<Array<ReadHighlight>>([]);
   const pdfViewerRef = useRef<PDFViewer | null>(null);
+
+  // Representation
+  const [representation, setRepresentation] = useState<RepresentationType>(REPRESENTATION_TYPES.NOTE_DIAGRAM);
+  const [representationData, setRepresentationData] = useState<Record<RepresentationType, any>>({});
 
   // Shared
   const [readPurposes, setReadPurposes] = useState<Record<string, ReadPurpose>>({});
@@ -742,6 +762,11 @@ export const PaperContextProvider = ({ children }: { children: React.ReactNode }
   return (
     <PaperContext.Provider
       value={{
+        // Representation
+        representation,
+        setRepresentation,
+        representationData,
+        setRepresentationData,
         // Paper
         paperUrl,
         setPaperUrl,

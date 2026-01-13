@@ -178,3 +178,56 @@ def parse_facet_response(response_text: str) -> List[Dict]:
         facets.append(current_facet)
     
     return facets
+
+
+def generate_paper_summary_prompt(paper_data: Optional[Dict] = None, text: Optional[str] = None) -> str:
+    """Generate prompt for paper summary."""
+    if text:
+        paper_content = text
+    elif paper_data:
+        title = paper_data.get("title", "N/A")
+        abstract = paper_data.get("abstract", "N/A")
+        paper_content = f"Title: {title}\n\nAbstract: {abstract}"
+    else:
+        raise ValueError("Either paper_data or text must be provided")
+    
+    prompt = f"""Please provide a comprehensive summary of the following academic paper. 
+The summary should cover:
+1. The main research problem or question
+2. The key methodology or approach
+3. The main findings or contributions
+4. The significance or implications of the work
+
+Paper content:
+{paper_content}
+
+Please provide a clear, well-structured summary that captures the essence of this paper."""
+    
+    return prompt
+
+
+async def generate_paper_summary(corpus_id: Optional[str] = None, text: Optional[str] = None) -> str:
+    """Generate a summary of a paper using Gemini AI."""
+    if not corpus_id and not text:
+        raise ValueError("Either corpus_id or text must be provided")
+    
+    # Get paper data if corpus_id provided
+    paper_data = None
+    if corpus_id:
+        papers = await get_paper_data([corpus_id])
+        paper_data = papers.get(corpus_id, {})
+    
+    # Generate prompt
+    prompt = generate_paper_summary_prompt(paper_data, text)
+    
+    # Call Gemini API
+    if not client:
+        raise ValueError("Gemini client is not initialized. Please check GEMINI_API_KEY environment variable.")
+    
+    response = client.models.generate_content(
+        model=GEMINI_MODEL,
+        contents=prompt,
+    )
+    
+    # Return summary
+    return response.text

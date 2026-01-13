@@ -31,3 +31,20 @@ class FacetExtractionResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     message: str
+
+
+class PaperSummaryRequest(BaseModel):
+    corpus_id: Optional[str] = None
+    text: Optional[str] = None
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "corpus_id": "CorpusId:276903484",
+                "text": None
+            }
+        }
+
+
+class PaperSummaryResponse(BaseModel):
+    summary: str
